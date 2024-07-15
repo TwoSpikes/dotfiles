@@ -663,92 +663,32 @@ clear
 echo "==== Setting up ${setting_editor_for} ===="
 echo ""
 
-case "${OS}" in
-	MINGW*)
-		if test "${setting_editor_for}" = "vim"; then
-			VIMRUNTIME=/c/"Program Files"/Neovim/share/nvim/runtime
-		else
-			VIMRUNTIME=/c/"Program Files"/Vim/share/vim/vim*
-		fi
-		;;
-	*)
-		if test "${setting_editor_for}" = "vim"; then
-			VIMRUNTIME=${root}/usr/share/vim/vim*
-		else
-			VIMRUNTIME=${root}/usr/share/nvim/runtime
-		fi
-		;;
-esac
-
-echo -n "That is right? (y/N): "
-read_char user_input
-user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-case ${user_input} in
-	"y")
-		echo "Ok"
-		;;
-	*)
-		>&2 echo "Abort"
-		return 1
-		;;
-esac
-
-clear
-echo "==== Checking if config for editor ${setting_editor_for} exists ===="
-echo ""
-
-if test -d ${dotfiles}/.config/nvim; then
-	echo "Directory exists"
-else
-	>&2 echo "Abort: Directory does not exist"
-	return 1
-fi
-
-if test -z "$(ls ${dotfiles}/.config/nvim)"; then
-	>&2 echo "Abort: Directory is empty"
-	return 1
-fi
-
-if test -f ${dotfiles}/.config/nvim/init.vim; then
-	echo "Config for ${setting_editor_for} exists"
-else
-	>&2 echo "Abort: Config for ${setting_editor_for} does not exist"
-	return 1
-fi
-
-echo -n "Do you want to copy config for ${setting_editor_for}? (y/N): "
+echo -n "Do you want to install config for ${setting_editor_for}? (y/N): "
 read_char user_input
 user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 case ${user_input} in
 	"y")
 		clear
-		echo "==== Copying ${setting_editor_for} config ===="
+		echo "==== Installing ${setting_editor_for} config ===="
 		echo ""
 
 		if ! test -d ${home}/.config; then
 			mkdir -pv ${home}/.config
 		fi
-		cp -r ${dotfiles}/.config/nvim ${home}/.config/
-		if ! test -d "${VIMRUNTIME}/colors"; then
-			run_as_superuser_if_needed mkdir -pv "${VIMRUNTIME}/colors"
-		fi
-		run_as_superuser_if_needed "cp -v ${dotfiles}/vimruntime/colors/* ${VIMRUNTIME}/colors/"
-		if ! test -d "${VIMRUNTIME}/syntax"; then
-			run_as_superuser_if_needed mkdir -pv "${VIMRUNTIME}/syntax"
-		fi
-		run_as_superuser_if_needed "cp -v ${dotfiles}/vimruntime/syntax/* ${VIMRUNTIME}/syntax/"
-		if test "${setting_editor_for}" = "vim"; then
-			echo 'exec printf("source %s/.config/vim/init.vim", $HOME)' > ${home}/.vimrc
-		fi
-		if ! test -d ${home}/bin; then
-			mkdir -pv ${home}/bin
-		fi
+		git clone --depth=1 https://github.com/TwoSpikes/extra.nvim ~/extra.nvim
+		cd ~/extra.nvim/util/installer
+		cargo run --
+		cd -
 		press_enter
 		;;
 	*)
 		;;
 esac
 clear
+
+if ! test -d ${home}/bin; then
+	mkdir -pv ${home}/bin
+fi
 
 echo "==== Installing packer.nvim ===="
 echo ""

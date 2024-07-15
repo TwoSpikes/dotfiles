@@ -151,7 +151,9 @@ Manual installation
 ### Installation
 
 ```console
-$ cp -r ./.config/nvim/ ~/.config/
+$ git clone https://github.com/TwoSpikes/extra.nvim ~/extra.nvim
+$ cd ~/extra.nvim/util/installer
+$ cargo run --
 ```
 
 ### Extra step for Vim

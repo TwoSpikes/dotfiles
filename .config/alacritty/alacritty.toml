@@ -1,5 +1,5 @@
 import = [
-  "~/.config/alacritty/alacritty-theme/themes/themes/solarized_light.toml"
+  "~/.config/alacritty/themes/themes/solarized_light.toml"
 ]
 
 [font]
