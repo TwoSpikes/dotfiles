@@ -150,12 +150,6 @@ fn commit(only_copy: bool, #[allow(non_snake_case)] HOME: PathBuf) -> ::std::io:
     );
     _ = ::std::fs::copy(HOME.join(".eclrc"), "./.eclrc");
     _ = ::std::fs::copy(HOME.join("sbclrc"), "./sbclrc");
-    _ = copy_dir_all(HOME.join(".config/nvim/lua"), "./.config/nvim/lua");
-    _ = copy_dir_all(HOME.join(".config/nvim/vim"), "./.config/nvim/vim");
-    _ = copy_dir_all(
-        HOME.join(".config/nvim/ftplugin"),
-        "./.config/nvim/ftplugin",
-    );
     _ = copy_dir_all(HOME.join(".config/helix"), "./.config/helix");
     _ = ::std::fs::copy(HOME.join("bin/viman"), "./bin/viman");
     _ = ::std::fs::copy(HOME.join("bin/vipage"), "./bin/vipage");
@@ -163,48 +157,6 @@ fn commit(only_copy: bool, #[allow(non_snake_case)] HOME: PathBuf) -> ::std::io:
     _ = ::std::fs::copy(HOME.join("bin/ls"), "./bin/ls");
     _ = ::std::fs::copy(HOME.join("bin/n"), "./bin/n");
     _ = ::std::fs::copy(HOME.join("bin/pie"), "./bin/pie");
-    #[allow(non_snake_case)]
-    let VIMRUNTIME = if ::which::which("nvim").is_ok() {
-        if cfg!(target_os = "windows") {
-            "/c/Program Files/Neovim/share/nvim/runtime"
-        } else {
-            if is_termux {
-                "/data/data/com.termux/files/usr/share/nvim/runtime"
-            } else {
-                "/usr/share/nvim/runtime"
-            }
-        }
-        .to_string()
-    } else {
-        find_vim_vimruntime_path(is_termux)
-    };
-    let VIMRUNTIME = ::std::path::Path::new(VIMRUNTIME.as_str());
-    _ = ::std::fs::create_dir_all("./vimruntime/syntax");
-    _ = run_as_superuser_if_needed!(
-        "cp",
-        &[
-            VIMRUNTIME
-                .join("syntax/book.vim")
-                .to_str()
-                .expect("Cannot convert path to str"),
-            "./vimruntime/syntax/"
-        ]
-    );
-    _ = ::std::fs::create_dir_all("./vimruntime/colors");
-    _ = run_as_superuser_if_needed!(
-        "cp",
-        &[
-            VIMRUNTIME
-                .join("colors/blueorange.vim")
-                .to_str()
-                .expect("Cannot convert path to str"),
-            "./vimruntime/colors/"
-        ]
-    );
-    _ = ::std::fs::copy(
-        HOME.join(".config/nvim/vim/xterm-color-table.vim"),
-        "./.config/nvim/vim/xterm-color-table.vim",
-    );
     _ = ::std::fs::copy(HOME.join(".tmux.conf"), "./.tmux.conf");
     _ = ::std::fs::copy(HOME.join(".gitconfig-default"), "./.gitconfig-default");
     _ = ::std::fs::copy(HOME.join(".gitmessage"), "./.gitmessage");
