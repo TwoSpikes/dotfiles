@@ -1,1 +1,0 @@
-require('packages.cinnamon.setup')
