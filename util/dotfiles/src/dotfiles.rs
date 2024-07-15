@@ -69,6 +69,7 @@ macro_rules! short_help {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! run_as_superuser_if_needed {
     ($name:expr, $args:expr) => {
         if ::whoami::realname() != "root"
@@ -694,10 +695,6 @@ fn main() {
         Some(path) => path,
         None => panic!("Cannot get HOME directory"),
     };
-    {
-        let path_to_dotfiles = HOME.as_path().join("dotfiles");
-        assert!(::std::env::set_current_dir(&path_to_dotfiles).is_ok());
-    }
     let mut state = State::NONE;
     while args.len() > 0 {
         match args.nth(0).unwrap().as_str() {

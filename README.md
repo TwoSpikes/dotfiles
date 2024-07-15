@@ -143,5 +143,5 @@ If using Vim/NeoVim:
 ## Get dotfiles version
 
 ```console
-dotfiles version
+$ dotfiles version
 ```
