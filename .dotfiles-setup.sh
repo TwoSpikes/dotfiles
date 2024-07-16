@@ -98,39 +98,6 @@ run_as_superuser_if_needed() {
 	fi
 }
 
-install_coc_sh_crutch() {
-	clear
-	echo "==== Setting up coc-sh crutch ===="
-	echo ""
-
-	echo -n "Checking if coc-sh crutch installed: "
-	if test -e ${home}/.config/coc/extensions/node_modules/coc-sh/node_modules/bash-language-server/out/cli.js_crutch
-	then
-		echo "YES"
-		installed=true
-	else
-		echo "NO"
-		installed=false
-	fi
-
-	if ${installed} || ${INSTALL_ANYWAYS}
-	then
-		echo -n "Do you want to install coc-sh crutch (Y/n): "
-		read_char user_input
-		user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-		case "${user_input}" in
-			"n")
-				;;
-			*)
-				mv -v ${home}/.config/coc/extensions/node_modules/coc-sh/node_modules/bash-language-server/out/cli.js ${home}/.config/coc/extensions/node_modules/coc-sh/node_modules/bash-language-server/out/cli.js_crutch
-				cp -v ${dotfiles}/"coc-sh crutch"/cli.js ${home}/.config/coc/extensions/node_modules/coc-sh/node_modules/bash-language-server/out/cli.js
-				chmod -v +x ${home}/.config/coc/extensions/node_modules/coc-sh/node_modules/bash-language-server/out/cli.js
-				;;
-		esac
-	fi
-	press_enter
-}
-
 if test "${1}" = "--help" \
 || test "${2}" = "--help"  \
 || test "${3}" = "--help"  \
@@ -427,11 +394,6 @@ fi
 
 echo "Now we are ready to start"
 press_enter
-
-if test "${ONLY_SETUP_COC_SH_CRUTCH}" = "true"; then
-	INSTALL_ANYWAYS=true install_coc_sh_crutch
-	exit 0
-fi
 
 clear
 echo "==== Setting up dotfiles ===="
@@ -1226,8 +1188,6 @@ case "${user_input}" in
 		;;
 esac
 press_enter
-
-install_coc_sh_crutch
 
 clear
 echo "==== Setting up Coursier ===="
