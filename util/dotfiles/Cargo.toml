@@ -10,7 +10,6 @@ path = "src/dotfiles.rs"
 [dependencies]
 copy_dir = "0.1.3"
 cursive = "0.20.0"
-encoding_rs = "0.8.34"
 home = "0.5.9"
 runas = "1.2.0"
 sysinfo = "0.30.12"
