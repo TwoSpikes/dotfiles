@@ -19,7 +19,6 @@ If you have internet, most of that stuff can be downloaded by install script usi
 
 # Consists configs for
 
-- `nvim` (NeoVim) or `vim`
 - `emacs` (WIP)
 - `nano`
 - `alacritty`
