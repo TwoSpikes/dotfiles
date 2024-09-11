@@ -2,9 +2,15 @@
 dotfiles init
 export PATH=$PATH:$HOME/elixir/bin
 alias q="exit"
-md(){ test $# -eq 1 && mkdir -p -- "$1" && cd -- "$1"; }
-nd(){ test $# -eq 1 && mkdir -p -- "$1" && cd -- "$1" && nvim ./; }
-up(){ cd ..; }
+md(){
+	test $# -eq 1 && mkdir -p -- "$1" && chdir -- "$1"
+}
+nd(){
+	test $# -eq 1 && mkdir -p -- "$1" && chdir -- "$1" && nvim ./
+}
+up(){
+	chdir ..
+}
 if ! test -z "${ZSH_VERSION}"
 then
 	autoload -U compinit
@@ -12,21 +18,33 @@ then
 	compdef _directories md
 	compdef _directories nd
 fi
-eb(){ exec bash --noprofile -c "clear"; }
+eb(){
+	exec bash --noprofile -c "clear"
+}
 
-GOPATH=${GOPATH:="${HOME}/go"}
-GOBIN=${GOBIN:="${GOPATH}/bin"}
+if test -z "${GOPATH}"
+then
+	GOPATH="${HOME}/go"
+fi
+if test -z "${GOBIN}"
+then
+	GOBIN="${GOPATH}/bin"
+fi
 export PATH="${PATH}:${GOBIN}"
 
 export HISTSIZE=5000
 export DISPLAY=":0"
-if [ -f "/data/data/com.termux/files/usr/lib/libtermux-exec.so" ]; then
+if test -f "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+then
 	export LD_PRELOAD=/data/data/com.termux/files/usr/lib/libtermux-exec.so
 fi
 
 export XDG_CONFIG_HOME="${HOME}/.config/"
 
-[ -z "${PREFIX}" ] && ( export PREFIX="/usr/" )
+if test -z "${PREFIX}"
+then
+	export PREFIX="/usr/"
+fi
 
 JAVA_HOME="${PREFIX}/share/jdk8"
 
