@@ -139,6 +139,9 @@ If using Vim/NeoVim:
 :DotfilesCommit
 ```
 
+[!Warning]
+> Do not run this command in home directory, run it only in this repository, otherwise it will delete some files on your computer
+
 ## Get dotfiles version
 
 ```console
