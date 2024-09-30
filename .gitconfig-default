@@ -1,0 +1,6 @@
+[init]
+	defaultBranch = master
+[push]
+	autoSetupRemote = true
+[commit]
+	template = ~/.gitmessage
