@@ -436,6 +436,50 @@ esac
 press_enter
 
 clear
+echo "==== Setting up emacs ===="
+echo ""
+
+echo -n "Checking if emacs is installed: "
+if command -v "emacs" > /dev/null 2>&1
+then
+	echo "YES"
+else
+	echo "NO"
+	
+	echo -n "Do you want to install emacs? (Y/n): "
+	read_char user_input
+	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
+	case "${user_input}" in
+		"n")
+			;;
+		*)
+			install_package emacs
+			;;
+	esac
+fi
+press_enter
+
+if command -v "emacs" > /dev/null 2>&1
+then
+	errorcode=0
+	if ! test -d "${home}"/.emacs.d
+	then
+		echo "Making emacs config directory..."
+		mkdir -pv "${home}"/.emacs.d
+		errorcode="${?}"
+	fi
+	if test "${errorcode}" -eq 0
+	then
+		echo -n "Installing emacs config: "
+		cp -r "${dotfiles}"/.emacs.d "${home}"/
+		echo "OK"
+	else
+		>2& echo "error: could not make directory, skipping"
+	fi
+fi
+press_enter
+
+clear
 echo "==== Setting up bd ===="
 echo ""
 
@@ -449,7 +493,7 @@ else
 	echo -n "Do you want to install bd? (Y/n): "
 	read_char user_input
 	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-	case ${user_input} in
+	case "${user_input}" in
 		"n")
 			;;
 		*)
@@ -638,7 +682,7 @@ case ${user_input} in
 			mkdir -pv ${home}/.config
 		fi
 		git clone --depth=1 https://github.com/TwoSpikes/extra.nvim ~/extra.nvim
-		cd ~/extra.nvim/util/installer
+		cd ~/extra.nvim/util/exnvim
 		cargo run --
 		cd -
 		press_enter
@@ -1228,22 +1272,6 @@ case "${user_input}" in
 		;;
 	*)
 		install_package xkb-switch
-		;;
-esac
-press_enter
-
-clear
-echo "==== Setting up broken lua syntax workaround ===="
-echo ""
-
-echo -n "Do you want to install lua syntax workaround? (Y/n): "
-read_char user_input
-user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-case "${user_input}" in
-	"n")
-		;;
-	*)
-		curl -sS https://raw.githubusercontent.com/neovim/neovim/v0.7.2/runtime/syntax/lua.vim > ${VIMRUNTIME}/syntax/lua.vim
 		;;
 esac
 press_enter

@@ -160,6 +160,7 @@ fn commit(only_copy: bool, #[allow(non_snake_case)] HOME: PathBuf) -> ::std::io:
     _ = ::std::fs::copy(HOME.join(".tmux.conf"), "./.tmux.conf");
     _ = ::std::fs::copy(HOME.join(".gitconfig-default"), "./.gitconfig-default");
     _ = ::std::fs::copy(HOME.join(".gitmessage"), "./.gitmessage");
+    _ = copy_dir_all(HOME.join(".emacs.d"), "./.emacs.d");
     _ = ::std::fs::copy(
         HOME.join(".termux/colors.properties"),
         "./.termux/colors.properties",
