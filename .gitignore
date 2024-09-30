@@ -1,3 +1,5 @@
 *~
 util/dotfiles/target
 util/dotfiles/Cargo.lock
+.emacs.d/config.el
+.emacs.d/elpaca/
