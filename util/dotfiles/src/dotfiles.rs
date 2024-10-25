@@ -56,7 +56,7 @@ macro_rules! help {
 macro_rules! help_invitation {
     ($program_name:expr) => {
         println!("To see full help, run:");
-        println!("{} --help", stringify!($program_name));
+        println!("{} --help", $program_name);
     };
 }
 

@@ -19,7 +19,8 @@ then
 	compdef _directories nd
 fi
 eb(){
-	exec bash --noprofile -c "clear"
+	clear
+	exec bash --noprofile
 }
 
 if test -z "${GOPATH}"
