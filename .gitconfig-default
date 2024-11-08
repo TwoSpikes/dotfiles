@@ -12,6 +12,8 @@
 	ca = commit --all
 	cfg = config
 	cfgg = config --global
+	cl = clone
+	c1 = clone --depth=1
 	p = push
 	pl = pull
 	m = merge

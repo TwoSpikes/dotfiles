@@ -22,6 +22,18 @@ eb(){
 	clear
 	exec bash --noprofile
 }
+vnv(){
+	if test -z ${1}
+	then
+		venv_name=venv
+	else
+		venv_name="${1}"
+	fi
+	python3 -mvenv "${venv_name}"
+}
+pyt(){
+	python3 -mpytest -v tests
+}
 
 if test -z "${GOPATH}"
 then
