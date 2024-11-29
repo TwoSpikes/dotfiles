@@ -6,7 +6,7 @@ elif command -v "vim" > /dev/null 2>&1; then
 	editor="vim"
 fi
 if ! command -v "exnvim" > /dev/null 2>&1; then
-	${editor} -c "let g:DO_NOT_OPEN_ANYTHING=v:true" -c "set nocul nocuc stal=0 ls=0 sloc=last smd ru" --cmd "let g:cursorline=v:false" -c "au VimEnter * Man $1 $2|silent only|call feedkeys(\"\<c-\>\<c-n>\")"
+	${editor} -c "let g:DO_NOT_OPEN_ANYTHING=v:true" -c "set nocul nocuc stal=0 ls=0 sloc=last smd ru" --cmd "let g:cursorline=v:false" -c "au! VimEnter * Man $1 $2|silent only|call feedkeys(\"\\\\<c-\\\\>\\\\<c-n>\")"
 else
-	${editor} -c "let g:PAGER_MODE=v:true" -c "au VimEnter * Man $1 $2|silent only"
+	${editor} -c "let g:PAGER_MODE=v:true" -c "autocmd User ExNvimLoaded Man $1 $2|silent only"
 fi
