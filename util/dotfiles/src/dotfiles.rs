@@ -214,6 +214,28 @@ fn init(home: PathBuf) -> ::std::io::Result<()> {
         _ = f.write_all(b"#!/bin/env sh\nls $@");
     }
 
+    macro_rules! handle_error {
+        ($path: expr) => {
+            match $path {
+                Some(path) => path,
+                None => {
+                    return Err(::std::io::Error::new(
+                        ::std::io::ErrorKind::NotFound,
+                        "directory has not been found"
+                    ));
+                }
+            }
+        };
+    }
+    let usr = handle_error!(home.parent()).join("usr");
+    let usr_lib_node_modules = usr.join("lib/node_modules");
+    let usr_lib_node = usr.join("lib/node");
+    let usr_lib_node_modules_exists = ::std::fs::exists(usr_lib_node_modules.clone())?;
+    let usr_lib_node_exists = ::std::fs::exists(usr_lib_node.clone())?;
+    if usr_lib_node_modules_exists && !usr_lib_node_exists {
+        let _ = ::std::os::unix::fs::symlink(usr_lib_node_modules, usr_lib_node);
+    }
+
     print!("\x1b[5 q");
 
     timer_end_silent(&mut timer);
