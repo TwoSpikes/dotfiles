@@ -1,5 +1,8 @@
 #!/bin/env sh
-dotfiles init
+if command -v 'dotfiles' > /dev/null 2>&1
+then
+	dotfiles init
+fi
 export PATH=$PATH:$HOME/elixir/bin
 alias q="exit"
 md(){
@@ -20,7 +23,7 @@ then
 fi
 eb(){
 	clear
-	exec bash --noprofile
+	exec bash --noprofile --norc
 }
 vnv(){
 	if test -z ${1}
@@ -73,3 +76,10 @@ then
 else
 	export PAGER='more'
 fi
+
+if test -d "${HOME}/z88dk/bin"
+then
+	PATH="${PATH}:${HOME}/z88dk/bin"
+fi
+
+echo "[INFO] dotfiles scripted loaded"
