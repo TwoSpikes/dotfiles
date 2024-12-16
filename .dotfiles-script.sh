@@ -79,10 +79,20 @@ fi
 
 if test -d "${HOME}/z88dk/bin"
 then
-	PATH="${PATH}:${HOME}/z88dk/bin"
+	export PATH="${PATH}:${HOME}/z88dk/bin"
+fi
+
+if command -v 'cargo' > /dev/null 2>&1
+then
+	export PATH="${PATH}:${HOME}/.cargo/bin"
+fi
+
+if ! test -z "${BASH_VERSION}"
+then
+	if shopt -q login_shell
+	then
+		exec nvim
+	fi
 fi
 
 echo "[INFO] dotfiles scripted loaded"
-
-exec nvim
-
