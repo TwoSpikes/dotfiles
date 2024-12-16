@@ -83,3 +83,6 @@ then
 fi
 
 echo "[INFO] dotfiles scripted loaded"
+
+exec nvim
+
