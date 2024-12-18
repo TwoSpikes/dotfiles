@@ -1,4 +1,17 @@
 #!/bin/env sh
+if ! test -z "${TERMUX_VERSION}"
+then
+	if test -z "${ZSH_VERSION}"
+	then
+		if command -v "zsh" > /dev/null 2>&1
+		then
+			if ! shopt -q login_shell
+			then
+				exec zsh
+			fi
+		fi
+	fi
+fi
 if command -v 'dotfiles' > /dev/null 2>&1
 then
 	dotfiles init
@@ -87,11 +100,14 @@ then
 	export PATH="${PATH}:${HOME}/.cargo/bin"
 fi
 
-if ! test -z "${BASH_VERSION}"
+if ! test -z "${TERMUX_VERSION}"
 then
-	if shopt -q login_shell
+	if ! test -z "${BASH_VERSION}"
 	then
-		exec nvim
+		if shopt -q login_shell
+		then
+			exec nvim
+		fi
 	fi
 fi
 
