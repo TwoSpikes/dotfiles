@@ -211,7 +211,7 @@ fn init(home: PathBuf) -> ::std::io::Result<()> {
     if ::which::which("lsd").is_ok() {
         _ = f.write_all(b"#!/bin/env sh\nlsd $@");
     } else {
-        _ = f.write_all(b"#!/bin/env sh\nls $@");
+        _ = f.write_all(b"#!/bin/env sh\nenv ls $@");
     }
 
     macro_rules! handle_error {
