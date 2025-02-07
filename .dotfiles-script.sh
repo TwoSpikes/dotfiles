@@ -19,6 +19,7 @@ fi
 export PATH=$PATH:$HOME/elixir/bin
 alias q="exit"
 alias :q="exit"
+alias :x="exit"
 md(){
 	test $# -eq 1 && mkdir -p -- "$1" && chdir -- "$1"
 }

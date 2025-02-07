@@ -177,7 +177,6 @@ user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 read_char user_input
 case ${user_input} in
 	"y")
-		break
 		;;
 	*)
 		echo "Abort"
@@ -268,6 +267,7 @@ determine_package_manager
 
 echo ""
 
+echo "Checking for internet..."
 if ! "${presume_no_internet}"; then
 	ping -c 1 8.8.8.8 > /dev/null
 	ping_errorcode=${?}
