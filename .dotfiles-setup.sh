@@ -49,29 +49,35 @@ press_enter() {
 	read user_input
 }
 install_package() {
-	if ${package_manager_not_found}; then
+	if ${package_manager_not_found}
+	then
 		echo "erorr: package manager not found"
 		return 1
 	fi
-	if  test -z "${PACKAGE_COMMAND}" || test -z "${package_manager_is_winget}"; then
+	if  test -z "${PACKAGE_COMMAND}" || test -z "${package_manager_is_winget}"
+	then
 		echo "Please run determine_package_manager"
 		return 1
 	fi
 	stdpkg=${1}
 	wingetpkg=${2}
-	if test -z ${stdpkg} && test -z ${wingetpkg}; then
+	if test -z ${stdpkg} && test -z ${wingetpkg}
+	then
 		echo "Too few cmdline arguments"
 		return 1
 	fi
-	if ! ${package_manager_is_winget}; then
-		if test -z ${stdpkg}; then
+	if ! ${package_manager_is_winget}
+	then
+		if test -z ${stdpkg}
+		then
 			echo "Package to install is not defined"
 			return 1
 		fi
 		install_package_command="${PACKAGE_COMMAND} ${stdpkg}"
 		run_as_superuser_if_needed "${install_package_command}"
 	else
-		if test -z ${wingetpkg}; then
+		if test -z ${wingetpkg}
+		then
 			echo "Package to install with winget is not defined"
 			return 1
 		fi
@@ -227,6 +233,8 @@ determine_package_manager() {
 			PACKAGE_COMMAND="yum install -y"
 		elif command -v "aptitude" > /dev/null 2>&1; then
 			PACKAGE_COMMAND="aptitude install -y"
+		elif command -v "opkg" > /dev/null 2>&1; then
+			PACKAGE_COMMAND="opkg install"
 		elif command -v "dnf" > /dev/null 2>&1; then
 			PACKAGE_COMMAND="dnf install -y"
 		elif command -v "emerge" > /dev/null 2>&1; then
@@ -299,7 +307,7 @@ else
 	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 	case ${user_input} in
 		"y")
-			mkdir ${dotfiles}
+			mkdir ${dotfiles} -vp
 			;;
 		*)
 			echo "Abort"
@@ -314,12 +322,50 @@ else
 	echo "Directory is not empty"
 fi
 
-if "${have_internet}"; then
+if test "${have_internet}" = "true"
+then
+	if test "${package_manager_not_found}" = "false"
+	then
+		if ! command -v curl >/dev/null 2>&1
+		then
+			if ! command -v wget >/dev/null 2>&1
+			then
+				echo "Neither curl nor wget is installed"
+				echo "Do you want to install it?"
+				echo "1) wget"
+				echo "2) curl"
+				echo "*) none of them"
+				read_char user_input
+				user_input=$(echo ${user_input}|awk '{print tolower($0)}')
+				case ${user_input} in
+					"1")
+						install_package wget
+						;;
+					"2")
+						install_package curl
+						;;
+					*)
+						;;
+				esac
+			fi
+			press_enter
+		fi
+	fi
+fi
+
+if "${have_internet}"
+then
 	TMPFILE=$(mktemp -u)
-	if command -v curl >/dev/null 2>&1; then
+	if command -v curl >/dev/null 2>&1
+	then
 		curl -fsSLo "${TMPFILE}" https://raw.githubusercontent.com/TwoSpikes/dotfiles/master/.dotfiles-version
-	else
+	elif command -v wget >/dev/null 2>&1
+	then
 		wget -O "${TMPFILE}" https://raw.githubusercontent.com/TwoSpikes/dotfiles/master/.dotfiles-version
+	else
+		echo "There is neither \`wget\` nor \`curl\` nor the opportunity to install any of them"
+		echo "Abort"
+		return 1
 	fi
 	latest_dotfiles_version=$(cat "${TMPFILE}")
 	echo "Latest dotfiles version: ${latest_dotfiles_version}"
@@ -395,11 +441,50 @@ fi
 echo "Now we are ready to start"
 press_enter
 
+download_rustup(){
+	set -x
+	curl --proto '=https' --tlsv1.4 https://sh.rustup.rs -sSf | sh
+	set +x
+}
+
 clear
 echo "==== Setting up dotfiles ===="
 echo ""
-if ! command -v "cargo" > /dev/null 2>&1; then
-	install_package rust
+if ! command -v "cargo" > /dev/null 2>&1
+then
+	case "${OS}" in
+		"Termux" | "Void" | "FreeBSD")
+			install_package rust
+			;;
+		"Arch Linux" | "Arch Linux 32")
+			install_package rustc
+			;;
+		"openSUSE Leap" | "openSUSE Tumbleweed")
+			install_package rustup
+			;;
+		"Alpine Linux")
+			if ! command -v curl >/dev/null 2>&1
+			then
+				install_package curl
+			fi
+			if true\
+			&& ! command -v ld.lld >/dev/null 2>&1
+			&& ! command -v ld64.lld >/dev/null 2>&1
+			&& ! command -v lld-link >/dev/null 2>&1
+			&& ! command -v wasm-ld >/dev/null 2>&1
+			then
+				install_package gcc
+			fi
+			download_rustup
+			;;
+		*)
+			if ! command -v curl >/dev/null 2>&1
+			then
+				install_package curl
+			fi
+			download_rustup
+			;;
+	esac
 fi
 cd ${dotfiles}/util/dotfiles
 echo "Building..."
@@ -683,7 +768,7 @@ case ${user_input} in
 		fi
 		git clone --depth=1 https://github.com/TwoSpikes/extra.nvim ~/extra.nvim
 		cd ~/extra.nvim/util/exnvim
-		cargo run --
+		cargo run -- install
 		cd -
 		press_enter
 		;;
@@ -695,38 +780,6 @@ clear
 if ! test -d ${home}/bin; then
 	mkdir -pv ${home}/bin
 fi
-
-echo "==== Installing packer.nvim ===="
-echo ""
-
-case "${OS}" in
-	MINGW*)
-		>&2 echo "Cannot install packer.nvim to NeoVim: not implemented for Mingw"
-		;;
-	*)
-		# FIXME: make work for Vim with Lua or change Plugin Manager
-		echo -n "Checking if packer.nvim is installed: "
-		if test -e ${home}/.local/share/nvim/site/pack/packer/start/packer.nvim; then
-			echo "YES"
-		else
-			echo "NO"
-			if ${neovim_found}; then
-				echo -n "Do you want to install packer.nvim to NeoVim (y/N): "
-				read_char user_input
-				user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-				case ${user_input} in
-					"y")
-						run_as_superuser_if_needed git clone --depth 1 https://github.com/wbthomason/packer.nvim ${home}/.local/share/nvim/site/pack/packer/start/packer.nvim
-						;;
-					*)
-						;;
-				esac
-			else
-				>&2 echo "Cannot install packer.nvim: NeoVim not found"
-			fi
-		fi
-esac
-press_enter
 
 clear
 echo "==== Setting up git ===="
