@@ -108,4 +108,6 @@ case ":$PATH:" in
 esac
 # pnpm end
 
+export JAVA_HOME=/data/data/com.termux/files/usr/lib/jvm/java-17-openjdk/bin
+
 . ~/.dotfiles-script.sh
