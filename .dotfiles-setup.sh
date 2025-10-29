@@ -52,26 +52,30 @@ press_enter() {
 install_package() {
 	if ${package_manager_not_found}
 	then
-		echo "erorr: package manager not found"
+		>2& echo "error: package manager not found"
+		>2& "Abort"
 		return 1
 	fi
 	if  test -z "${PACKAGE_COMMAND}" || test -z "${package_manager_is_winget}"
 	then
-		echo "Please run determine_package_manager"
+		>2& echo "Please run determine_package_manager"
+		>2& echo "Abort"
 		return 1
 	fi
 	stdpkg=${1}
 	wingetpkg=${2}
 	if test -z ${stdpkg} && test -z ${wingetpkg}
 	then
-		echo "Too few cmdline arguments"
+		>2& echo "Too few cmdline arguments"
+		>2& echo "Abort"
 		return 1
 	fi
 	if ! ${package_manager_is_winget}
 	then
 		if test -z ${stdpkg}
 		then
-			echo "Package to install is not defined"
+			>2& echo "Package to install is not defined"
+			>2& echo "Abort"
 			return 1
 		fi
 		install_package_command="${PACKAGE_COMMAND} ${stdpkg}"
@@ -79,7 +83,8 @@ install_package() {
 	else
 		if test -z ${wingetpkg}
 		then
-			echo "Package to install with winget is not defined"
+			>2& echo "Package to install with winget is not defined"
+			>2& echo "Abort"
 			return 1
 		fi
 		winget install ${wingetpkg}
@@ -88,31 +93,41 @@ install_package() {
 run_as_superuser_if_needed() {
 	needed_command="${@}"
 	
-	if ${run_as_yes}; then
+	if ${run_as_yes}
+	then
 		needed_command="yes | ${needed_command}"
 	fi
 
-	if test ${need_to_run_as_superuser} = "no"; then
+	if test ${need_to_run_as_superuser} = "no"
+	then
 		${needed_command}
-	elif test ${need_to_run_as_superuser} = "yes"; then
+		return ${?}
+	elif test ${need_to_run_as_superuser} = "yes"
+	then
 		${run_as_superuser} ${needed_command}
-	elif test ${need_to_run_as_superuser} = "not found"; then
-		echo "Error: superuser command not found"
+		return ${?}
+	elif test ${need_to_run_as_superuser} = "not found"
+	then
+		>2& echo "Error: superuser command not found"
+		>2& echo "Abort"
 		return 1
 	else
-		echo "run_as_superuser_if_needed: internal error"
+		>2& echo "run_as_superuser_if_needed: internal error"
+		>2& echo "Abort"
 		return 1
 	fi
 }
 
-if test "${1}" = "--help" \
-|| test "${2}" = "--help"  \
-|| test "${3}" = "--help"  \
-|| test "${4}" = "--help" ; then
+if test "${1}" = "--help"\
+|| test "${2}" = "--help"\
+|| test "${3}" = "--help"\
+|| test "${4}" = "--help"
+then
 	help
 fi
 
-if test "${STOP_AT_FIRST_ERROR}" = "true"; then
+if test "${STOP_AT_FIRST_ERROR}" = "true"
+then
 	set -e
 fi
 if test "${NO_INTERNET}" = "true"; then
@@ -120,48 +135,55 @@ if test "${NO_INTERNET}" = "true"; then
 else
 	presume_no_internet=false
 fi
-if test "${NO_PACKAGE_MANAGER}" = "true"; then
+if test "${NO_PACKAGE_MANAGER}" = "true"
+then
 	presume_no_package_manager=true
 else
 	presume_no_package_manager=false
 fi
 
-if test -z ${1}; then
-	echo "Please provide path to dotfiles"
-	echo ""
+if test -z ${1}
+then
+	>2& echo "Please provide path to dotfiles"
+	>2& echo ""
 	short_help
 	exit 1
 fi
 
 home=${HOME}
-if ! test -z ${2}; then
+if ! test -z ${2}
+then
 	home=${2}
 fi
 
 dotfiles=$(realpath ${1})
 
-if test -z ${PREFIX}; then
+if test -z ${PREFIX}
+then
 	root=/
 else
 	root=${PREFIX}/..
 fi
-if ! test -z ${3}; then
+if ! test -z ${3}
+then
 	root=${3}
 fi
 
 clear
 echo "==== Starting ===="
 echo ""
-if ! test $(whoami) = "root" && test -z ${TERMUX_VERSION}; then
-	if command -v "sudo" > /dev/null 2>&1; then
+if ! test $(whoami) = "root" && test -z ${TERMUX_VERSION}
+then
+	if command -v "sudo" > /dev/null 2>&1
+	then
 		run_as_superuser="sudo"
 		need_to_run_as_superuser="yes"
-	elif command -v "doas" > /dev/null 2>&1; then
+	elif command -v "doas" > /dev/null 2>&1
+	then
 		run_as_superuser="doas"
 		need_to_run_as_superuser="yes"
 	else
-		echo "Warning: sudo or doas command not found"
-		echo ""
+		>2& echo "Warning: sudo or doas command not found"
 		run_as_superuser=""
 		need_to_run_as_superuser="not found"
 	fi
@@ -186,7 +208,7 @@ case ${user_input} in
 	"y")
 		;;
 	*)
-		echo "Abort"
+		>2& echo "Abort"
 		exit 1
 		;;
 esac
@@ -195,10 +217,12 @@ clear
 echo "==== Checking misc stuff ===="
 echo ""
 
-if ! test -z ${TERMUX_VERSION}; then
+if ! test -z ${TERMUX_VERSION}
+then
 	OS=Termux
 	VER=${TERMUX_VERSION}
-elif test -f ${root}/etc/os-release; then
+elif test -f ${root}/etc/os-release
+then
 	. ${root}/etc/os-release
 	OS=${NAME}
 	VER=${VERSION}
@@ -213,54 +237,76 @@ determine_package_manager() {
 	run_as_yes=false
 	package_manager_is_winget=false
 	package_manager_not_found=false
-	if ${presume_no_package_manager}; then
+	if ${presume_no_package_manager}
+	then
 		package_manager_not_found=true
 	else
-		if command -v "pkg" > /dev/null 2>&1; then
+		if command -v "pkg" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="pkg install -y"
-		elif command -v "apt" > /dev/null 2>&1; then
+		elif command -v "apt" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="apt install -y"
-		elif command -v "apt-get" > /dev/null 2>&1; then
+		elif command -v "apt-get" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="apt-get install -y"
-		elif command -v "winget" > /dev/null 2>&1; then
+		elif command -v "winget" > /dev/null 2>&1
+		then
 			package_manager_is_winget=true
-		elif command -v "pacman" > /dev/null 2>&1; then
+		elif command -v "pacman" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="pacman -Suy --noconfirm"
-		elif command -v "zypper" > /dev/null 2>&1; then
+		elif command -v "zypper" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="zypper install -y"
-		elif command -v "xbps-install" > /dev/null 2>&1; then
+		elif command -v "xbps-install" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="xbps-install -Sy"
-		elif command -v "yum" > /dev/null 2>&1; then
+		elif command -v "yum" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="yum install -y"
-		elif command -v "aptitude" > /dev/null 2>&1; then
+		elif command -v "aptitude" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="aptitude install -y"
-		elif command -v "opkg" > /dev/null 2>&1; then
+		elif command -v "opkg" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="opkg install"
-		elif command -v "dnf" > /dev/null 2>&1; then
+		elif command -v "dnf" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="dnf install -y"
-		elif command -v "emerge" > /dev/null 2>&1; then
+		elif command -v "emerge" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="emerge --ask --verbose"
-		elif command -v "up2date" > /dev/null 2>&1; then
+		elif command -v "up2date" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="up2date"
-		elif command -v "urpmi" > /dev/null 2>&1; then
+		elif command -v "urpmi" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="urpmi --force"
-		elif command -v "slackpkg" > /dev/null 2>&1; then
+		elif command -v "slackpkg" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="slackpkg install"
-		elif command -v "apk" > /dev/null 2>&1; then
+		elif command -v "apk" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="apk add"
-		elif command -v "brew" > /dev/null 2>&1; then
+		elif command -v "brew" > /dev/null 2>&1
+		then
 			run_as_yes=true
 			PACKAGE_COMMAND="brew install"
-		elif command -v "flatpak" > /dev/null 2>&1; then
+		elif command -v "flatpak" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="flatpak install"
-		elif command -v "snap" > /dev/null 2>&1; then
+		elif command -v "snap" > /dev/null 2>&1
+		then
 			PACKAGE_COMMAND="snap install"
 		else
 			package_manager_not_found=true
 		fi
 	fi
-	if ! ${package_manager_not_found}; then
-		if ${package_manager_is_winget}; then
+	if ! ${package_manager_not_found}
+	then
+		if ${package_manager_is_winget}
+		then
 			echo "Package manager is winget"
 		else
 			echo "Package command is: ${PACKAGE_COMMAND}"
@@ -277,10 +323,12 @@ determine_package_manager
 echo ""
 
 echo "Checking for internet..."
-if ! "${presume_no_internet}"; then
+if ! "${presume_no_internet}"
+then
 	ping -c 1 8.8.8.8 > /dev/null
 	ping_errorcode=${?}
-	if test ${ping_errorcode} -eq 0; then
+	if test ${ping_errorcode} -eq 0
+	then
 		echo "You have an internet"
 		have_internet=true
 	else
@@ -291,7 +339,8 @@ else
 	have_internet=false
 fi
 
-if ! command -v "git" > /dev/null 2>&1; then
+if ! command -v "git" > /dev/null 2>&1
+then
 	echo "Git not found"
 	git_found=false
 else
@@ -299,7 +348,8 @@ else
 	git_found=true
 fi
 
-if test -d ${dotfiles}; then
+if test -d ${dotfiles}
+then
 	echo "Dotfiles directory exists"
 else
 	echo "Dotfiles directory does not exist"
@@ -311,13 +361,14 @@ else
 			mkdir ${dotfiles} -vp
 			;;
 		*)
-			echo "Abort"
+			>2& echo "Abort"
 			return 1
 			;;
 	esac
 fi
 
-if test -z "$(ls -A ${dotfiles})"; then
+if test -z "$(ls -A ${dotfiles})"
+then
 	echo "Directory is empty"
 else
 	echo "Directory is not empty"
@@ -341,9 +392,19 @@ then
 				case ${user_input} in
 					"1")
 						install_package wget
+						errorcode=${?}
+						if test ${errorcode} -ne 0
+						then
+							return ${errorcode}
+						fi
 						;;
 					"2")
 						install_package curl
+						errorcode=${?}
+						if test ${errorcode} -ne 0
+						then
+							return ${errorcode}
+						fi
 						;;
 					*)
 						;;
@@ -364,8 +425,8 @@ then
 	then
 		wget -O "${TMPFILE}" https://raw.githubusercontent.com/TwoSpikes/dotfiles/master/.dotfiles-version
 	else
-		echo "There is neither \`wget\` nor \`curl\` nor the opportunity to install any of them"
-		echo "Abort"
+		>2& echo "There is neither \`wget\` nor \`curl\` nor the opportunity to install any of them"
+		>2& echo "Abort"
 		return 1
 	fi
 	latest_dotfiles_version=$(cat "${TMPFILE}")
@@ -378,15 +439,19 @@ else
 	latest_dotfiles_version_known=false
 fi
 
-if test -f ${dotfiles}/.dotfiles-version; then
+if test -f ${dotfiles}/.dotfiles-version
+then
 	local_dotfiles_version=$(cat ${dotfiles}/.dotfiles-version)
 	have_local_dotfiles=true
 else
 	have_local_dotfiles=false
 fi
-if "${have_local_dotfiles}"; then
-	if "${latest_dotfiles_version_known}"; then
-		if test "${local_dotfiles_version}" = "${latest_dotfiles_version}"; then
+if "${have_local_dotfiles}"
+then
+	if "${latest_dotfiles_version_known}"
+	then
+		if test "${local_dotfiles_version}" = "${latest_dotfiles_version}"
+		then
 			have_latest_dotfiles=true
 		else
 			have_latest_dotfiles=false
@@ -398,12 +463,14 @@ else
 	have_latest_dotfiles=false
 fi
 
-if "${have_latest_dotfiles}"; then
+if "${have_latest_dotfiles}"
+then
 	echo "Dotfiles found"
 	echo -n "Local dotfiles version: "
 	cat ${dotfiles}/.dotfiles-version
 else
-	if ! test -f ${dotfiles}/.dotfiles-version; then
+	if ! test -f ${dotfiles}/.dotfiles-version
+	then
 		echo "Dotfiles not found"
 	else
 		echo "Dotfiles is old, new version if aviable"
@@ -414,8 +481,10 @@ else
 		user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 		case ${user_input} in
 			"y")
-				if ! test ${git_found}; then
-					echo "Abort: No Git found"
+				if ! test ${git_found}
+				then
+					>2& echo "No Git found"
+					>2& echo "Abort"
 					return 1
 				else
 	set -x
@@ -424,16 +493,20 @@ else
 				fi
 				;;
 			*)
-				if ! "${have_local_dotfiles}"; then
-					echo "fatal: no dotfiles and you rejected to download them"
+				if ! "${have_local_dotfiles}"
+				then
+					>2& echo "No dotfiles and you rejected to download them"
+					>2& echo "Abort"
 					return 1
 				fi
 				;;
 		esac
 	else
-		if ! "${have_local_dotfiles}"; then
-			echo "fatal: you need internet to download them"
-			echo "maybe you handed the wrong path to dotfiles?"
+		if ! "${have_local_dotfiles}"
+		then
+			>2& echo "You need internet to download them"
+			>2& echo "Maybe you handed the wrong path to dotfiles?"
+			>2& echo "Abort"
 			return 1
 		fi
 	fi
@@ -469,9 +542,9 @@ then
 				install_package curl
 			fi
 			if true\
-			&& ! command -v ld.lld >/dev/null 2>&1
-			&& ! command -v ld64.lld >/dev/null 2>&1
-			&& ! command -v lld-link >/dev/null 2>&1
+			&& ! command -v ld.lld >/dev/null 2>&1\
+			&& ! command -v ld64.lld >/dev/null 2>&1\
+			&& ! command -v lld-link >/dev/null 2>&1\
 			&& ! command -v wasm-ld >/dev/null 2>&1
 			then
 				install_package gcc
@@ -595,7 +668,8 @@ clear
 echo "==== Installing Zsh ===="
 echo ""
 
-if ! command -v zsh > /dev/null 2>&1; then
+if ! command -v zsh > /dev/null 2>&1
+then
 	echo -n "Do you want to install Zsh? (Y/n): "
 	read_char user_input
 	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
@@ -638,7 +712,8 @@ case ${user_input} in
 	*)
 		echo -n "Fetching zsh4humans... "
 		TMPFILE_DOWNLOADED=mktemp
-		if command -v curl >/dev/null 2>&1; then
+		if command -v curl >/dev/null 2>&1
+		then
 			curl -fsSLo "${TMPFILE_DOWNLOADED}" https://raw.githubusercontent.com/romkatv/zsh4humans/v5/install
 		else
 			wget -O "${TMPFILE_DOWNLOADED}" https://raw.githubusercontent.com/romkatv/zsh4humans/v5/install
@@ -702,7 +777,8 @@ clear
 echo "==== Checking if editors exist ===="
 echo ""
 
-if ! command -v "nvim" 2>&1; then
+if ! command -v "nvim" 2>&1
+then
 	echo "Neovim not found"
 	neovim_found=false
 else
@@ -710,7 +786,8 @@ else
 	neovim_found=true
 fi
 
-if ! command -v "vim" 2>&1; then
+if ! command -v "vim" 2>&1
+then
 	echo "Vim not found"
 	vim_found=false
 else
@@ -742,7 +819,8 @@ if ${vim_found}; then
 		setting_editor_for=vim
 	fi
 else
-	if ${neovim_found}; then
+	if ${neovim_found}
+	then
 		setting_editor_for=nvim
 	else
 		>&2 echo "Vim/NeoVim not found"
@@ -764,7 +842,8 @@ case ${user_input} in
 		echo "==== Installing ${setting_editor_for} config ===="
 		echo ""
 
-		if ! test -d ${home}/.config; then
+		if ! test -d ${home}/.config
+		then
 			mkdir -pv ${home}/.config
 		fi
 		git clone --depth=1 https://github.com/TwoSpikes/extra.nvim ~/extra.nvim
@@ -778,7 +857,8 @@ case ${user_input} in
 esac
 clear
 
-if ! test -d ${home}/bin; then
+if ! test -d ${home}/bin
+then
 	mkdir -pv ${home}/bin
 fi
 
@@ -787,7 +867,8 @@ echo "==== Setting up git ===="
 echo ""
 
 echo -n "Checking if Git is installed: "
-if $git_found; then
+if $git_found
+then
 	echo "YES"
 	echo ""
 
@@ -903,7 +984,8 @@ case "${user_input}" in
 					;;
 			esac
 		fi
-		if command -v "tmux" > /dev/null 2>&1; then
+		if command -v "tmux" > /dev/null 2>&1
+		then
 			echo -n "Copying config for Tmux... "
 			cp ${dotfiles}/.tmux.conf ${home}/
 			echo "OK"
@@ -1009,6 +1091,11 @@ else
 			./configure
 			make
 			${run_as_superuser_if_needed} make install
+			errorcode=${?}
+			if test ${errorcode} -ne 0
+			then
+				>2& echo "An error ocurred while installing ctags"
+			fi
 			;;
 		*)
 			;;
@@ -1021,7 +1108,8 @@ echo "==== Setting up npm ===="
 echo ""
 
 echo -n "Checking if npm installed: "
-if command -v "npm" > /dev/null 2>&1; then
+if command -v "npm" > /dev/null 2>&1
+then
 	echo "YES"
 else
 	echo "NO"
@@ -1043,7 +1131,8 @@ echo "==== Setting up pnpm ==="
 echo ""
 
 echo -n "Checking if pnpm is installed: "
-if command -v "pnpm" > /dev/null 2>&1; then
+if command -v "pnpm" > /dev/null 2>&1
+then
 	echo "YES"
 else
 	echo "NO"
@@ -1071,19 +1160,22 @@ echo ""
 
 echo "Do you want to install mc/far?"
 echo -n "1) mc (Midnight commander): "
-if command -v "mc" > /dev/null 2>&1; then
+if command -v "mc" > /dev/null 2>&1
+then
 	echo "installed"
 else
 	echo "not installed"
 fi
 echo -n "2) far: "
-if command -v "far" > /dev/null 2>&1; then
+if command -v "far" > /dev/null 2>&1
+then
 	echo "installed"
 else
 	echo "not installed"
 fi
 echo -n "3) far2l (Far to Linux): "
-if command -v "far2l" > /dev/null 2>&1; then
+if command -v "far2l" > /dev/null 2>&1
+then
 	echo "installed"
 else
 	echo "not installed"
@@ -1111,7 +1203,8 @@ echo "==== Setting up Python ===="
 echo ""
 
 echo -n "Checking if python is installed: "
-if command -v "python" > /dev/null 2>&1; then
+if command -v "python" > /dev/null 2>&1
+then
 	echo "YES"
 else
 	echo "NO"
@@ -1128,7 +1221,8 @@ else
 	esac
 fi
 
-if command -v "python" > /dev/null 2>&1; then
+if command -v "python" > /dev/null 2>&1
+then
 	echo ""
 	echo -n "Do you want to install things related to Python (Y/n): "
 	read user_input
@@ -1145,13 +1239,15 @@ fi
 
 press_enter
 
-if ${to_install_python}; then
+if ${to_install_python}
+then
 	clear
 	echo "==== Setting up pip ===="
 	echo ""
 
 	echo -n "Checking if pip is installed: "
-	if command -v "pip" > /dev/null 2>&1; then
+	if command -v "pip" > /dev/null 2>&1
+	then
 		echo "YES"
 		echo ""
 		to_install_pipx=true
@@ -1174,13 +1270,15 @@ if ${to_install_python}; then
 	fi
 	press_enter
 
-	if ${to_install_pipx}; then
+	if ${to_install_pipx}
+	then
 		clear
 		echo "==== Setting up pipx ===="
 		echo ""
 
 		echo -n "Checking if pipx already installed: "
-		if command -v "pipx" > /dev/null 2>&1; then
+		if command -v "pipx" > /dev/null 2>&1
+		then
 			echo "YES"
 		else
 			echo "NO"
@@ -1205,7 +1303,8 @@ echo "==== Setting up golang ===="
 echo ""
 
 echo -n "Checking if golang is installed: "
-if command -v "go" > /dev/null 2>&1; then
+if command -v "go" > /dev/null 2>&1
+then
 	echo "YES"
 else
 	echo "NO"
@@ -1224,7 +1323,8 @@ else
 fi
 press_enter
 
-if command -v "go" > /dev/null 2>&1; then
+if command -v "go" > /dev/null 2>&1
+then
 	GOPATH=${GOPATH:="${HOME}/go"}
 	GOBIN=${GOBIN:="${GOPATH}/bin"}
 
@@ -1241,13 +1341,15 @@ if command -v "go" > /dev/null 2>&1; then
 			;;
 	esac
 
-	if ${to_install_golang_related}; then
+	if ${to_install_golang_related}
+	then
 		clear
 		echo "==== Setting up delve ===="
 		echo ""
 
 		echo -n "Checking if delve is installed: "
-		if test -e ${GOBIN}/dlv; then
+		if test -e ${GOBIN}/dlv
+		then
 			echo "YES"
 		else
 			echo "NO"
@@ -1313,7 +1415,8 @@ echo "==== Setting up xkb-switch ===="
 echo ""
 
 echo -n "Checking if xkb-switch is installed: "
-if command -v "xkb-switch" > /dev/null 2>&1; then
+if command -v "xkb-switch" > /dev/null 2>&1
+then
 	echo "YES"
 else
 	echo "NO"
