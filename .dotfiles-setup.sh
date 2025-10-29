@@ -1,5 +1,10 @@
 #!/bin/env sh
 
+cleanup() {
+	stty sane
+}
+trap cleanup EXIT
+
 # Copyied from StackOverflow: https://stackoverflow.com/questions/8725925/how-to-read-just-a-single-character-in-shell-script
 # Archived: https://www.dropbox.com/scl/fi/rzro16efgcqx21e7p8vu4/linux-How-to-read-just-a-single-character-in-shell-script-Stack-Overflow.pdf?rlkey=y7ishp5zajtx7fqvpgitdc8b7&st=xtd970a8&dl=0
 read_char() {
@@ -169,9 +174,12 @@ then
 	root=${3}
 fi
 
-clear
-echo "==== Starting ===="
-echo ""
+show_starting_message() {
+	clear
+	echo "==== Starting ===="
+	echo ""
+}
+
 if ! test $(whoami) = "root" && test -z ${TERMUX_VERSION}
 then
 	if command -v "sudo" > /dev/null 2>&1
@@ -191,27 +199,161 @@ else
 	need_to_run_as_superuser="no"
 fi
 
-echo "Path to dotfiles is:"
-echo "<<< ${dotfiles}"
+show_basic_paths() {
+	echo "Path to dotfiles is:"
+	echo "<<< ${dotfiles}"
 
-echo "Path to home is:"
-echo "<<< ${home}"
+	echo "Path to home is:"
+	echo "<<< ${home}"
 
-echo "Path to / is:"
-echo "<<< ${root}"
+	echo "Path to / is:"
+	echo "<<< ${root}"
 
-echo ""
-echo -n "That is right? (y/N): "
-user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-read_char user_input
-case ${user_input} in
-	"y")
-		;;
-	*)
-		>2& echo "Abort"
-		exit 1
-		;;
-esac
+	echo "Need to run as superuser:"
+	echo "<<< ${need_to_run_as_superuser}"
+
+	echo "Superuser command is:"
+	echo "<<< ${run_as_superuser}"
+}
+
+while true
+do
+	show_starting_message
+	show_basic_paths
+	echo ""
+	echo -n "That is right? (y/N): "
+	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
+	read_char user_input
+	case ${user_input} in
+		"y")
+			break
+			;;
+		*)
+			clear
+			echo "==== Changing basic paths ===="
+			echo ""
+			echo "What path would you like to change?"
+			echo "1. Path to dotfiles"
+			echo "2. Path to home"
+			echo "3. Path to root"
+			echo "4. Need to run as superuser"
+			echo "5. Superuser command"
+			echo "6. Back"
+			echo "7. Exit"
+			echo -n ">>> "
+			read_char user_input
+			if test "${user_input}" = "7"
+			then
+				>2& echo "Abort"
+				exit 1
+			fi
+			if ! test "${user_input}" = "6"
+			then
+				if test "${user_input}" = "4"
+				then
+					case "${need_to_run_as_superuser}" in
+						"no")
+							echo "1. Change \"no\" to \"yes\""
+							echo "2. Change to \"not found\""
+							;;
+						"yes")
+							echo "1. Change \"yes\" to \"no\""
+							echo "2. Change to \"not found\""
+							;;
+						"not found")
+							echo "1. Change to \"no\""
+							echo "2. Change to \"yes\""
+							;;
+						*)
+							>2& echo "Internal error"
+							>2& echo "Abort"
+							return 1
+							;;
+					esac
+					echo "3. Back"
+					echo "4. Exit"
+					read_char option
+					if test "${option}" = "4"
+					then
+						>2& echo "Abort"
+						exit 1
+					fi
+					case "${need_to_run_as_superuser}" in
+						"no")
+							case "${option}" in
+								"1")
+									need_to_run_as_superuser="yes"
+									;;
+								"2")
+									need_to_run_as_superuser="not found"
+									;;
+								"3")
+									;;
+								*)
+									>2& echo "Wrong value"
+									;;
+							esac
+							;;
+						"yes")
+							case "${option}" in
+								"1")
+									need_to_run_as_superuser="no"
+									;;
+								"2")
+									need_to_run_as_superuser="not found"
+									;;
+								"3")
+									;;
+								*)
+									>2& echo "Wrong value"
+									;;
+							esac
+							;;
+						"not found")
+							case "${option}" in
+								"1")
+									need_to_run_as_superuser="no"
+									;;
+								"2")
+									need_to_run_as_superuser="yes"
+									;;
+								"3")
+									;;
+								*)
+									>2& echo "Wrong value"
+									;;
+							esac
+							;;
+						*)
+							>2& echo "Internal error"
+							;;
+					esac
+				else
+					echo -n "New value: "
+					read -r option
+					case "${user_input}" in
+						"1")
+							dotfiles="${option}"
+							;;
+						"2")
+							home="${option}"
+							;;
+						"3")
+							root="${option}"
+							;;
+						"5")
+							run_as_superuser="${option}"
+							;;
+						*)
+							>2& echo "Wrong value"
+							;;
+					esac
+				fi
+			fi
+			press_enter
+			;;
+	esac
+done
 
 clear
 echo "==== Checking misc stuff ===="
