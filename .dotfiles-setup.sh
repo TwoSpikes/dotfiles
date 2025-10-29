@@ -1,6 +1,7 @@
 #!/bin/env sh
 
 # Copyied from StackOverflow: https://stackoverflow.com/questions/8725925/how-to-read-just-a-single-character-in-shell-script
+# Archived: https://www.dropbox.com/scl/fi/rzro16efgcqx21e7p8vu4/linux-How-to-read-just-a-single-character-in-shell-script-Stack-Overflow.pdf?rlkey=y7ishp5zajtx7fqvpgitdc8b7&st=xtd970a8&dl=0
 read_char() {
   stty -icanon -echo
   eval "$1=\$(dd bs=1 count=1 2>/dev/null)"
