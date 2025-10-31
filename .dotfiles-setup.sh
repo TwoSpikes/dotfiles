@@ -123,13 +123,13 @@ run_as_superuser_if_needed() {
 	fi
 }
 
-if test "${1}" = "--help"\
-|| test "${2}" = "--help"\
-|| test "${3}" = "--help"\
-|| test "${4}" = "--help"
-then
-	help
-fi
+for arg in "${@}"
+do
+	if test "${arg}" = "--help"
+	then
+		help
+	fi
+done
 
 if test "${STOP_AT_FIRST_ERROR}" = "true"
 then
@@ -174,9 +174,9 @@ then
 	root=${3}
 fi
 
-show_starting_message() {
+show_header() {
 	clear
-	echo "==== Starting ===="
+	echo "====" ${1} "===="
 	echo ""
 }
 
@@ -218,7 +218,7 @@ show_basic_paths() {
 
 while true
 do
-	show_starting_message
+	show_header "Starting"
 	show_basic_paths
 	echo ""
 	echo -n "That is right? (y/N): "
@@ -229,9 +229,7 @@ do
 			break
 			;;
 		*)
-			clear
-			echo "==== Changing basic paths ===="
-			echo ""
+			show_header "Changing basic paths"
 			echo "What path would you like to change?"
 			echo "1. Path to dotfiles"
 			echo "2. Path to home"
@@ -355,9 +353,7 @@ do
 	esac
 done
 
-clear
-echo "==== Checking misc stuff ===="
-echo ""
+show_header "Checking misc stuff"
 
 if ! test -z ${TERMUX_VERSION}
 then
@@ -663,9 +659,8 @@ download_rustup(){
 	set +x
 }
 
-clear
-echo "==== Setting up dotfiles ===="
-echo ""
+show_header "Setting up dotfiles"
+
 if ! command -v "cargo" > /dev/null 2>&1
 then
 	case "${OS}" in
@@ -710,9 +705,7 @@ run_as_superuser_if_needed install ${dotfiles}/util/dotfiles/target/release/dotf
 cd -
 press_enter
 
-clear
-echo "==== Setting up shell ===="
-echo ""
+show_header "Setting up shell"
 
 echo -n "Do you want to copy shell scripts and its dependencies? (y/N/exit): "
 read_char user_input
@@ -736,9 +729,7 @@ case ${user_input} in
 esac
 press_enter
 
-clear
-echo "==== Setting up emacs ===="
-echo ""
+show_header "Setting up emacs"
 
 echo -n "Checking if emacs is installed: "
 if command -v "emacs" > /dev/null 2>&1
@@ -780,9 +771,7 @@ then
 fi
 press_enter
 
-clear
-echo "==== Setting up bd ===="
-echo ""
+show_header "==== Setting up bd ===="
 
 echo -n "Checking if bd is installed: "
 if test -f "${HOME}/.zsh/plugins/bd/bd.zsh"
@@ -806,9 +795,7 @@ else
 fi
 press_enter
 
-clear
-echo "==== Installing Zsh ===="
-echo ""
+show_header "==== Installing Zsh ===="
 
 if ! command -v zsh > /dev/null 2>&1
 then
@@ -825,9 +812,7 @@ then
 fi
 press_enter
 
-clear
-echo "==== Making Zsh your default shell ===="
-echo ""
+show_header "Making Zsh your default shell"
 
 echo -n "Do you want to make Zsh your default shell? (Y/n): "
 read_char user_input
@@ -841,9 +826,7 @@ case ${user_input} in
 esac
 press_enter
 
-clear
-echo "==== Installing zsh4humans ===="
-echo ""
+show_header "==== Installing zsh4humans ===="
 
 echo -n "Do you want to install zsh4humans? (Y/n): "
 read_char user_input
@@ -883,9 +866,7 @@ case ${user_input} in
 esac
 press_enter
 
-clear
-echo "==== Setting up helix ===="
-echo ""
+show_header "Setting up helix"
 
 echo -n "Checking if Helix is installed: "
 if command -v "hx" > /dev/null 2>&1
@@ -915,9 +896,7 @@ cp -r ${dotfiles}/.config/helix ${home}/.config/
 echo "OK"
 press_enter
 
-clear
-echo "==== Checking if editors exist ===="
-echo ""
+show_header "Checking if editors exist"
 
 if ! command -v "nvim" 2>&1
 then
@@ -937,8 +916,10 @@ else
 	vim_found=true
 fi
 
-if ${vim_found}; then
-	if ${neovim_found}; then
+if ${vim_found}
+then
+	if ${neovim_found}
+	then
 		echo "Set editor for:"
 		echo "1. Vim"
 		echo "2. Neovim"
@@ -971,18 +952,14 @@ else
 	fi
 fi
 
-clear
-echo "==== Setting up ${setting_editor_for} ===="
-echo ""
+show_header "Setting up ${setting_editor_for}"
 
 echo -n "Do you want to install config for ${setting_editor_for}? (y/N): "
 read_char user_input
 user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 case ${user_input} in
 	"y")
-		clear
-		echo "==== Installing ${setting_editor_for} config ===="
-		echo ""
+		show_header "Installing ${setting_editor_for} config"
 
 		if ! test -d ${home}/.config
 		then
@@ -1004,9 +981,7 @@ then
 	mkdir -pv ${home}/bin
 fi
 
-clear
-echo "==== Setting up git ===="
-echo ""
+show_header "Setting up git"
 
 echo -n "Checking if Git is installed: "
 if $git_found
@@ -1042,9 +1017,7 @@ press_enter
 
 if test ${OS} = "Termux"
 then
-clear
-echo "==== Setting up termux ===="
-echo ""
+show_header "Setting up termux"
 
 echo -n "Do you want to setup Termux? (Y/n): "
 read_char user_input
