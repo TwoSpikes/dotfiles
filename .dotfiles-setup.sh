@@ -467,10 +467,10 @@ then
 	ping_errorcode=${?}
 	if test ${ping_errorcode} -eq 0
 	then
-		echo "You have an internet"
+		echo "You have internet"
 		have_internet=true
 	else
-		echo "You do not have an internet"
+		echo "You do not have internet"
 		have_internet=false
 	fi
 else
@@ -1074,9 +1074,7 @@ case ${user_input} in
 esac
 fi
 
-clear
-echo "==== Setting up Tmux ===="
-echo ""
+show_header "==== Setting up Tmux ===="
 
 echo -n "Do you want to setup Tmux? (Y/n): "
 read_char user_input
@@ -1109,9 +1107,7 @@ case "${user_input}" in
 esac
 press_enter
 
-clear
-echo "==== Setting up Nano ===="
-echo ""
+show_header "==== Setting up Nano ===="
 
 echo -n "Do you want to setup Nano? (Y/n): "
 read_char user_input
@@ -1144,9 +1140,7 @@ case "${user_input}" in
 esac
 press_enter
 
-clear
-echo "==== Setting up Alacritty ===="
-echo ""
+show_header "==== Setting up Alacritty ===="
 
 echo -n "Do you want to setup Alacritty? (Y/n): "
 read_char user_input
@@ -1179,9 +1173,7 @@ case "${user_input}" in
 esac
 press_enter
 
-clear
-echo "==== Setting up ctags ===="
-echo ""
+show_header "==== Setting up ctags ===="
 
 echo -n "Checking if ctags are installed: "
 if command -v "ctags" > /dev/null 2>&1
@@ -1218,9 +1210,7 @@ else
 fi
 press_enter
 
-clear
-echo "==== Setting up npm ===="
-echo ""
+show_header "==== Setting up npm ===="
 
 echo -n "Checking if npm installed: "
 if command -v "npm" > /dev/null 2>&1
@@ -1241,9 +1231,7 @@ else
 fi
 press_enter
 
-clear
-echo "==== Setting up pnpm ==="
-echo ""
+show_header "==== Setting up pnpm ==="
 
 echo -n "Checking if pnpm is installed: "
 if command -v "pnpm" > /dev/null 2>&1
@@ -1269,9 +1257,7 @@ else
 fi
 press_enter
 
-clear
-echo "==== Setting up mc/far ===="
-echo ""
+show_header "==== Setting up mc/far ===="
 
 echo "Do you want to install mc/far?"
 echo -n "1) mc (Midnight commander): "
@@ -1313,9 +1299,7 @@ esac
 press_enter
 clear
 
-clear
-echo "==== Setting up Python ===="
-echo ""
+show_header "==== Setting up Python ===="
 
 echo -n "Checking if python is installed: "
 if command -v "python" > /dev/null 2>&1
@@ -1356,9 +1340,7 @@ press_enter
 
 if ${to_install_python}
 then
-	clear
-	echo "==== Setting up pip ===="
-	echo ""
+	show_header "Setting up pip"
 
 	echo -n "Checking if pip is installed: "
 	if command -v "pip" > /dev/null 2>&1
@@ -1387,9 +1369,7 @@ then
 
 	if ${to_install_pipx}
 	then
-		clear
-		echo "==== Setting up pipx ===="
-		echo ""
+		show_header "Setting up pipx"
 
 		echo -n "Checking if pipx already installed: "
 		if command -v "pipx" > /dev/null 2>&1
@@ -1413,9 +1393,7 @@ then
 	fi
 fi
 
-clear
-echo "==== Setting up golang ===="
-echo ""
+show_header "Setting up golang"
 
 echo -n "Checking if golang is installed: "
 if command -v "go" > /dev/null 2>&1
@@ -1458,9 +1436,7 @@ then
 
 	if ${to_install_golang_related}
 	then
-		clear
-		echo "==== Setting up delve ===="
-		echo ""
+		show_header "Setting up delve"
 
 		echo -n "Checking if delve is installed: "
 		if test -e ${GOBIN}/dlv
@@ -1483,9 +1459,7 @@ then
 fi
 press_enter
 
-clear
-echo "==== Setting up Java ===="
-echo ""
+show_header "Setting up Java"
 
 echo -n "Do you want to install Java (Y/n): "
 read_char user_input
@@ -1504,9 +1478,7 @@ case "${user_input}" in
 esac
 press_enter
 
-clear
-echo "==== Setting up Coursier ===="
-echo ""
+show_header "Setting up Coursier"
 
 echo -n "Checking if Coursier is installed: "
 echo "NO"
@@ -1525,9 +1497,7 @@ case "${user_input}" in
 esac
 press_enter
 
-clear
-echo "==== Setting up xkb-switch ===="
-echo ""
+show_header "Setting up xkb-switch"
 
 echo -n "Checking if xkb-switch is installed: "
 if command -v "xkb-switch" > /dev/null 2>&1
