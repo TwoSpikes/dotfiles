@@ -659,6 +659,11 @@ download_rustup(){
 	set +x
 }
 
+if ! test -d ${home}/bin
+then
+	mkdir -pv ${home}/bin
+fi
+
 show_header "Setting up dotfiles"
 
 if ! command -v "cargo" > /dev/null 2>&1
@@ -705,19 +710,114 @@ run_as_superuser_if_needed install ${dotfiles}/util/dotfiles/target/release/dotf
 cd -
 press_enter
 
-show_header "Setting up shell"
+clear
+echo "Loading..."
 
-echo -n "Do you want to copy shell scripts and its dependencies? (y/N/exit): "
+selected_shell="None"
+select_shell() {
+show_header "Selecting shell"
+
+echo "Please select the shell"
+echo "1. bash"
+echo "2. zsh"
+echo ""
+echo -n ">>> "
+
+read_char user_input
+
+case "${user_input}" in
+	"1")
+		selected_shell="bash"
+		;;
+	"2")
+		selected_shell="zsh"
+		;;
+	*)
+		>2& echo "Wrong input value"
+		selected_shell="None"
+		;;
+esac
+press_enter
+}
+
+setup_shell() {
+	ask_what_to_start
+	if ! test -d "${home}"/.config/dotfiles
+	then
+		mkdir -pv "${home}"/.config/dotfiles
+	fi
+	echo "autorun_program = \"${autorun_program}\"" > ~/.config/dotfiles/config.cfg
+	echo "shell = \"${selected_shell}\""
+
+	case "${selected_shell}" in
+		"bash")
+			setup_bash
+			;;
+		"zsh")
+			setup_zsh
+			;;
+		*)
+			>2& echo "Internal error"
+			return 1
+	esac
+	if test "${selected_shell}" = "zsh"
+	then
+		setup_bd
+		setup_z4h
+	fi
+	shell_is_set_up="true"
+}
+
+ask_what_to_start() {
+echo "What program would you like to run when the shell starts?"
+echo "1. Neovim"
+echo "2. None"
+echo ""
+echo -n ">>> "
+
+read_char user_input
+
+case "${user_input}" in
+	"1")
+		autorun_program="Neovim"
+		;;
+	"2")
+		autorun_program="None"
+		;;
+	*)
+		>2& echo "Incorrect input."
+		autorun_program="None"
+		;;
+esac
+}
+
+setup_zsh() {
+show_header "Installing Zsh"
+
+if ! command -v zsh > /dev/null 2>&1
+then
+	echo -n "Do you want to install Zsh? (Y/n): "
+	read_char user_input
+	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
+	case ${user_input} in
+		"n")
+			;;
+		*)
+			install_package zsh
+			;;
+	esac
+fi
+press_enter
+
+show_header "Setting up zsh"
+
+echo -n "Do you want to copy zsh scripts and its dependencies? (y/N/exit): "
 read_char user_input
 user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 case ${user_input} in
 	"y")
-		cp ${dotfiles}/.zshrc ${home}
-		cp ${dotfiles}/.dotfiles-script.sh ${home}
+		cp ${dotfiles}/.dotfiles-script.zsh ${home}
 		cp -r ${dotfiles}/shscripts/ ${home}
-		cp ${dotfiles}/.bash_profile ${home}
-		cp ${dotfiles}/.eclrc ${home}
-		cp ${dotfiles}/sbclrc ${home}
 		cp -v ${dotfiles}/bin/* ${home}/bin/
 		;;
 	"exit"|"x"|"e"|"q")
@@ -728,7 +828,40 @@ case ${user_input} in
 		;;
 esac
 press_enter
+}
 
+
+setup_bash() {
+show_header "Setting up bash"
+
+echo -n "Do you want to copy bash scripts and its dependencies? (y/N/exit): "
+read_char user_input
+user_input=$(echo ${user_input}|awk '{print tolower($0)}')
+case ${user_input} in
+	"y")
+		cp ${dotfiles}/.dotfiles-script.bash ${home}
+		cp -r ${dotfiles}/shscripts/ ${home}
+		cp ${dotfiles}/.bash_profile ${home}
+		cp -v ${dotfiles}/bin/* ${home}/bin/
+		;;
+	"exit"|"x"|"e"|"q")
+		echo "Abort"
+		return 1
+		;;
+	*)
+		;;
+esac
+press_enter
+}
+
+setup_common_lisp() {
+show_header "Setting up Common Lisp"
+cp ${dotfiles}/.eclrc ${home}
+cp ${dotfiles}/sbclrc ${home}
+common_lisp_is_set_up="true"
+}
+
+setup_emacs() {
 show_header "Setting up emacs"
 
 echo -n "Checking if emacs is installed: "
@@ -770,8 +903,11 @@ then
 	fi
 fi
 press_enter
+emacs_is_set_up="true"
+}
 
-show_header "==== Setting up bd ===="
+setup_bd() {
+show_header "Setting up bd"
 
 echo -n "Checking if bd is installed: "
 if test -f "${HOME}/.zsh/plugins/bd/bd.zsh"
@@ -794,39 +930,28 @@ else
 	esac
 fi
 press_enter
+}
 
-show_header "==== Installing Zsh ===="
+select_default_shell() {
+show_header "Selecting your default shell"
 
-if ! command -v zsh > /dev/null 2>&1
-then
-	echo -n "Do you want to install Zsh? (Y/n): "
-	read_char user_input
-	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-	case ${user_input} in
-		"n")
-			;;
-		*)
-			install_package zsh
-			;;
-	esac
-fi
-press_enter
-
-show_header "Making Zsh your default shell"
-
-echo -n "Do you want to make Zsh your default shell? (Y/n): "
-read_char user_input
-user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-case ${user_input} in
-	"n")
+case "${selected_shell}" in
+	"bash")
+		echo "Please, select bash"
+		;;
+	"zsh")
+		echo "Please, select bash for technical reasons"
 		;;
 	*)
-		chsh
+		>2& echo "Internal error"
 		;;
 esac
+chsh
 press_enter
+}
 
-show_header "==== Installing zsh4humans ===="
+setup_z4h() {
+show_header "Installing zsh4humans"
 
 echo -n "Do you want to install zsh4humans? (Y/n): "
 read_char user_input
@@ -865,7 +990,9 @@ case ${user_input} in
 		;;
 esac
 press_enter
+}
 
+setup_helix() {
 show_header "Setting up helix"
 
 echo -n "Checking if Helix is installed: "
@@ -895,7 +1022,10 @@ fi
 cp -r ${dotfiles}/.config/helix ${home}/.config/
 echo "OK"
 press_enter
+helix_is_set_up="true"
+}
 
+setup_vim_or_neovim() {
 show_header "Checking if editors exist"
 
 if ! command -v "nvim" 2>&1
@@ -974,13 +1104,10 @@ case ${user_input} in
 	*)
 		;;
 esac
-clear
+vim_or_neovim_is_set_up="true"
+}
 
-if ! test -d ${home}/bin
-then
-	mkdir -pv ${home}/bin
-fi
-
+setup_git() {
 show_header "Setting up git"
 
 echo -n "Checking if Git is installed: "
@@ -1014,9 +1141,10 @@ else
 	>&2 echo "Error: Git not found"
 fi
 press_enter
+git_is_set_up="true"
+}
 
-if test ${OS} = "Termux"
-then
+setup_termux() {
 show_header "Setting up termux"
 
 echo -n "Do you want to setup Termux? (Y/n): "
@@ -1072,9 +1200,11 @@ case ${user_input} in
 		echo "OK"
 		;;
 esac
-fi
+termux_is_set_up="true"
+}
 
-show_header "==== Setting up Tmux ===="
+setup_tmux() {
+show_header "Setting up Tmux"
 
 echo -n "Do you want to setup Tmux? (Y/n): "
 read_char user_input
@@ -1106,8 +1236,11 @@ case "${user_input}" in
 		;;
 esac
 press_enter
+tmux_is_set_up="true"
+}
 
-show_header "==== Setting up Nano ===="
+setup_nano() {
+show_header "Setting up Nano"
 
 echo -n "Do you want to setup Nano? (Y/n): "
 read_char user_input
@@ -1139,8 +1272,11 @@ case "${user_input}" in
 		;;
 esac
 press_enter
+nano_is_set_up="true"
+}
 
-show_header "==== Setting up Alacritty ===="
+setup_alacritty() {
+show_header "Setting up Alacritty"
 
 echo -n "Do you want to setup Alacritty? (Y/n): "
 read_char user_input
@@ -1172,8 +1308,11 @@ case "${user_input}" in
 		;;
 esac
 press_enter
+alacritty_is_set_up="true"
+}
 
-show_header "==== Setting up ctags ===="
+setup_ctags() {
+show_header "Setting up ctags"
 
 echo -n "Checking if ctags are installed: "
 if command -v "ctags" > /dev/null 2>&1
@@ -1209,11 +1348,14 @@ else
 	esac
 fi
 press_enter
+ctags_are_set_up="true"
+}
 
-show_header "==== Setting up npm ===="
+setup_nodejs() {
+show_header "Setting up nodejs"
 
-echo -n "Checking if npm installed: "
-if command -v "npm" > /dev/null 2>&1
+echo -n "Checking if nodejs installed: "
+if command -v "node" > /dev/null 2>&1
 then
 	echo "YES"
 else
@@ -1230,8 +1372,11 @@ else
 	esac
 fi
 press_enter
+nodejs_is_set_up="true"
+}
 
-show_header "==== Setting up pnpm ==="
+setup_pnpm() {
+show_header "Setting up pnpm"
 
 echo -n "Checking if pnpm is installed: "
 if command -v "pnpm" > /dev/null 2>&1
@@ -1256,8 +1401,11 @@ else
 	esac
 fi
 press_enter
+pnpm_is_set_up="true"
+}
 
-show_header "==== Setting up mc/far ===="
+setup_mc_or_far() {
+show_header "Setting up mc/far"
 
 echo "Do you want to install mc/far?"
 echo -n "1) mc (Midnight commander): "
@@ -1297,9 +1445,11 @@ case "${user_input}" in
 		;;
 esac
 press_enter
-clear
+mc_or_far_is_set_up="true"
+}
 
-show_header "==== Setting up Python ===="
+setup_python() {
+show_header "Setting up Python"
 
 echo -n "Checking if python is installed: "
 if command -v "python" > /dev/null 2>&1
@@ -1319,80 +1469,63 @@ else
 			;;
 	esac
 fi
+python_is_set_up="true"
+}
 
-if command -v "python" > /dev/null 2>&1
+setup_pip() {
+show_header "Setting up pip"
+
+echo -n "Checking if pip is installed: "
+if command -v "pip" > /dev/null 2>&1
 then
+	echo "YES"
 	echo ""
-	echo -n "Do you want to install things related to Python (Y/n): "
+	to_install_pipx=true
+else
+	echo "NO"
+	echo ""
+	echo -n "Do you want to install pip (Y/n): "
 	read user_input
 	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 	case "${user_input}" in
 		"n")
-			to_install_python=false
+			to_install_pipx=false
 			;;
 		*)
-			to_install_python=true
+			to_install_pipx=true
+			install_package python-pip
+			press_enter
 			;;
 	esac
 fi
-
 press_enter
+}
 
-if ${to_install_python}
+setup_pipx() {
+show_header "Setting up pipx"
+
+echo -n "Checking if pipx already installed: "
+if command -v "pipx" > /dev/null 2>&1
 then
-	show_header "Setting up pip"
-
-	echo -n "Checking if pip is installed: "
-	if command -v "pip" > /dev/null 2>&1
-	then
-		echo "YES"
-		echo ""
-		to_install_pipx=true
-	else
-		echo "NO"
-		echo ""
-		echo -n "Do you want to install pip (Y/n): "
-		read user_input
-		user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-		case "${user_input}" in
-			"n")
-				to_install_pipx=false
-				;;
-			*)
-				to_install_pipx=true
-				install_package python-pip
-				press_enter
-				;;
-		esac
-	fi
-	press_enter
-
-	if ${to_install_pipx}
-	then
-		show_header "Setting up pipx"
-
-		echo -n "Checking if pipx already installed: "
-		if command -v "pipx" > /dev/null 2>&1
-		then
-			echo "YES"
-		else
-			echo "NO"
-			echo ""
-			echo -n "Do you want to install pipx (Y/n): "
-			read user_input
-			user_input=$(echo ${user_input}|awk '{print tolower($0)}')
-			case "${user_input}" in
-				"n")
-					;;
-				*)
-					pip install pipx
-					;;
-			esac
-		fi
-		press_enter
-	fi
+	echo "YES"
+else
+	echo "NO"
+	echo ""
+	echo -n "Do you want to install pipx (Y/n): "
+	read user_input
+	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
+	case "${user_input}" in
+		"n")
+			;;
+		*)
+			pip install pipx
+			;;
+	esac
 fi
+press_enter
+}
 
+setup_golang() {
 show_header "Setting up golang"
 
 echo -n "Checking if golang is installed: "
@@ -1415,50 +1548,33 @@ else
 	esac
 fi
 press_enter
+golang_is_set_up="true"
+}
 
-if command -v "go" > /dev/null 2>&1
+setup_delve() {
+show_header "Setting up delve"
+
+echo -n "Checking if delve is installed: "
+if test -e ${GOBIN}/dlv
 then
-	GOPATH=${GOPATH:="${HOME}/go"}
-	GOBIN=${GOBIN:="${GOPATH}/bin"}
-
+	echo "YES"
+else
+	echo "NO"
 	echo ""
-	echo -n "Do you want to install things related to golang (Y/n): "
+	echo -n "Do you want to install delve (Y/n): "
 	read user_input
-	user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 	case "${user_input}" in
 		"n")
-			to_install_golang_related=false
 			;;
 		*)
-			to_install_golang_related=true
+			go install github.com/go-delve/delve/cmd/dlv@latest
 			;;
 	esac
-
-	if ${to_install_golang_related}
-	then
-		show_header "Setting up delve"
-
-		echo -n "Checking if delve is installed: "
-		if test -e ${GOBIN}/dlv
-		then
-			echo "YES"
-		else
-			echo "NO"
-			echo ""
-			echo -n "Do you want to install delve (Y/n): "
-			read user_input
-			case "${user_input}" in
-				"n")
-					;;
-				*)
-					go install github.com/go-delve/delve/cmd/dlv@latest
-					;;
-			esac
-		fi
-	fi
 fi
 press_enter
+}
 
+setup_java() {
 show_header "Setting up Java"
 
 echo -n "Do you want to install Java (Y/n): "
@@ -1477,7 +1593,10 @@ case "${user_input}" in
 		;;
 esac
 press_enter
+java_is_set_up="true"
+}
 
+setup_coursier() {
 show_header "Setting up Coursier"
 
 echo -n "Checking if Coursier is installed: "
@@ -1496,7 +1615,9 @@ case "${user_input}" in
 		;;
 esac
 press_enter
+}
 
+setup_xkb_switch() {
 show_header "Setting up xkb-switch"
 
 echo -n "Checking if xkb-switch is installed: "
@@ -1517,7 +1638,183 @@ case "${user_input}" in
 		;;
 esac
 press_enter
+xkb_switch_is_set_up="true"
+}
+
+echo "Loaded"
+
+privius_menu_item=0
+next_menu_item=1
+
+shell_is_set_up="false"
+common_lisp_is_set_up="false"
+emacs_is_set_up="false"
+helix_is_set_up="false"
+vim_or_neovim_is_set_up="false"
+git_is_set_up="false"
+termux_is_set_up="false"
+tmux_is_set_up="false"
+nano_is_set_up="false"
+alacritty_is_set_up="false"
+ctags_are_set_up="false"
+nodejs_is_set_up="false"
+pnpm_is_set_up="false"
+mc_or_far_is_set_up="false"
+python_is_set_up="false"
+golang_is_set_up="false"
+java_is_set_up="false"
+xkb_switch_is_set_up="false"
+
+enter_is_selected=0
+
+while true
+do
+	clear
+
+	if test ${enter_is_selected} -eq 1
+	then
+		current_menu_item="$(expr ${privius_menu_item} + 1)"
+		enter_is_selected=0
+	else
+		echo "What would you like to do?"
+		echo ""
+		echo "enter) Next menu item: $(expr ${privius_menu_item} + 1)"
+		echo "1) Select shell (selected: ${selected_shell})"
+		echo "2) Setup shell (done: ${shell_is_set_up})"
+		echo "3) Setup Common Lisp (done: ${common_lisp_is_set_up})"
+		echo "4) Setup Emacs (done: ${emacs_is_set_up})"
+		echo "5) Setup Helix (done: ${helix_is_set_up})"
+		echo "6) Setup Vim or Neovim (done: ${vim_or_neovim_is_set_up})"
+		echo "7) Setup Git (done: ${git_is_set_up})"
+		if ! test -z "${TERMUX_VERSION}"
+		then
+			echo "8) Setup Termux (done: ${termux_is_set_up})"
+		fi
+		echo "9) Setup Tmux (done: ${tmux_is_set_up})"
+		echo "10) Setup Nano (done: ${nano_is_set_up})"
+		echo "11) Setup Alacritty (done: ${alacritty_is_set_up})"
+		echo "12) Setup Ctags (done: ${ctags_are_set_up})"
+		echo "13) Setup Nodejs (done: ${nodejs_is_set_up})"
+		echo "14) Setup PNPM (done: ${pnpm_is_set_up})"
+		echo "15) Setup MC or FAR (done: ${mc_or_far_is_set_up})"
+		echo "16) Setup Python (done: ${python_is_set_up})"
+		echo "17) Setup Go (done: ${golang_is_set_up})"
+		echo "18) Setup Java (done: ${java_is_set_up})"
+		echo "19) Setup xkb_switch (done: ${xkb_switch_is_set_up})"
+		echo "20) Exit"
+		echo ""
+		echo -n ">>> "
+
+		read -r current_menu_item
+	fi
+	
+	case "${current_menu_item}" in
+		"1")
+			select_shell
+			;;
+		"2")
+			while test "${selected_shell}" = "None"
+			do
+				select_shell
+			done
+
+			setup_shell
+			;;
+		"3")
+			setup_common_lisp
+			;;
+		"4")
+			setup_emacs
+			;;
+		"5")
+			setup_helix
+			;;
+		"6")
+			setup_vim_or_neovim
+			;;
+		"7")
+			setup_git
+			;;
+		"8")
+			if test -z "${TERMUX_VERSION}"
+			then
+				while true
+				do
+					echo "You're not in Termux."
+					echo "Do you want to do this anyway?"
+					echo "1) Yes"
+					echo "2) No"
+					echo -n ">>> "
+					read_char user_input
+					case "${user_input}" in
+						"1")
+							setup_termux
+							break
+							;;
+						"2")
+							break
+							;;
+						*)
+							;;
+					esac
+				done
+			else
+				setup_termux
+			fi
+			;;
+		"9")
+			setup_tmux
+			;;
+		"10")
+			setup_nano
+			;;
+		"11")
+			setup_alacritty
+			;;
+		"12")
+			setup_ctags
+			;;
+		"13")
+			setup_nodejs
+			;;
+		"14")
+			setup_pnpm
+			;;
+		"15")
+			setup_mc_or_far
+			;;
+		"16")
+			setup_python
+			setup_pip
+			setup_pipx
+			;;
+		"17")
+			setup_golang
+			setup_delve
+			;;
+		"18")
+			setup_java
+			setup_coursier
+			;;
+		"19")
+			setup_xkb_switch
+			;;
+		"20")
+			echo ""
+			break
+			;;
+		"")
+			enter_is_selected=1
+			continue
+			;;
+		*)
+			continue
+			;;
+	esac
+	privius_menu_item="${current_menu_item}"
+	press_enter
+done
 
 echo "Dotfiles setup ended successfully"
-echo "It is recommended to restart your shell"
+echo "Restart your shell"
 exit 0

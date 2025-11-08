@@ -1,20 +1,9 @@
-#!/bin/env sh
-if ! test -z "${TERMUX_VERSION}"
+#!/bin/env zsh
+if [[ -o login ]]
 then
-	if test -z "${ZSH_VERSION}"
-	then
-		if command -v "zsh" > /dev/null 2>&1
-		then
-			if ! shopt -q login_shell
-			then
-				exec zsh
-			fi
-		fi
-	fi
-fi
-if command -v 'dotfiles' > /dev/null 2>&1
-then
-	dotfiles init
+	is_login_shell="--login-shell"
+else
+	is_login_shell="++login-shell"
 fi
 export PATH=$PATH:$HOME/elixir/bin
 alias q="exit"
@@ -29,13 +18,10 @@ nd(){
 up(){
 	chdir ..
 }
-if ! test -z "${ZSH_VERSION}"
-then
-	autoload -U compinit
-	compinit
-	compdef _directories md
-	compdef _directories nd
-fi
+autoload -U compinit
+compinit
+compdef _directories md
+compdef _directories nd
 eb(){
 	clear
 	exec bash --noprofile --norc
@@ -99,18 +85,21 @@ fi
 
 if command -v 'cargo' > /dev/null 2>&1
 then
-	export PATH="${PATH}:${HOME}/.cargo/bin"
-fi
-
-if ! test -z "${TERMUX_VERSION}"
-then
-	if ! test -z "${BASH_VERSION}"
-	then
-		if shopt -q login_shell
-		then
-			exec nvim
-		fi
-	fi
+	export PATH="${HOME}/.cargo/bin:${PATH}"
 fi
 
 echo "[INFO] dotfiles scripted loaded"
+
+if command -v 'dotfiles' > /dev/null 2>&1
+then
+	dotfiles init "${is_login_shell}"
+	errorcode="${?}"
+	if test "${errorcode}" -eq 20
+	then
+		exec zsh
+	fi
+	if test "${errorcode}" -eq 21
+	then
+		exec nvim
+	fi
+fi

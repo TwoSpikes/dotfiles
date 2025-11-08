@@ -1,14 +1,21 @@
 pub mod checkhealth;
 pub mod colors;
 pub mod timer;
+pub mod config;
 
-use cursive::CursiveExt;
-use std::io::Write;
-use std::path::PathBuf;
+use ::std::io::Write;
+use ::std::path::PathBuf;
+use ::std::process::exit;
 
 use timer::timer_end_silent;
 #[allow(unused_imports)]
 use timer::{timer_endln, timer_start_silent, timer_startln, timer_total_time};
+
+enum IsLoginShell {
+    Yes,
+    No,
+    Unspecified,
+}
 
 #[allow(unused_macros)]
 macro_rules! clear {
@@ -37,9 +44,12 @@ macro_rules! commands {
 macro_rules! options {
     () => {
         println!("OPTIONS (case sensitive):");
+        println!("\tCommon:");
+        println!("\t\t--login-shell -l     Presume this is a login_shell");
+        println!("\t\t++login-shell +l     Presume this is not a login_shell");
         println!("\tFor 'commit' subcommand:");
-        println!("\t\t--only-copy -o  Only copy, but not commit");
-        println!("\t\t++only-copy +o  Copy and commit (default)");
+        println!("\t\t--only-copy -o       Only copy, but not commit");
+        println!("\t\t++only-copy +o       Copy and commit (default)");
     };
 }
 
@@ -138,6 +148,7 @@ fn find_vim_vimruntime_path(is_termux: bool) -> String {
     }
     format!("vim{}", maxver.unwrap())
 }
+
 fn commit(only_copy: bool, #[allow(non_snake_case)] HOME: PathBuf) -> ::std::io::Result<()> {
     let is_termux: bool = ::std::env::var("TERMUX_VERSION").is_ok();
     _ = ::std::fs::copy(HOME.join(".dotfiles-script.sh"), "./.dotfiles-script.sh");
@@ -190,7 +201,7 @@ fn commit(only_copy: bool, #[allow(non_snake_case)] HOME: PathBuf) -> ::std::io:
     }
 }
 
-fn init(home: PathBuf) -> ::std::io::Result<()> {
+fn init(home: PathBuf, login_shell: IsLoginShell) -> ::std::io::Result<()> {
     let home_str = home
         .clone()
         .into_os_string()
@@ -236,8 +247,6 @@ fn init(home: PathBuf) -> ::std::io::Result<()> {
         let _ = ::std::os::unix::fs::symlink(usr_lib_node_modules, usr_lib_node);
     }
 
-    print!("\x1b[5 q");
-
     timer_end_silent(&mut timer);
 
     let mut sys = ::sysinfo::System::new_all();
@@ -266,6 +275,18 @@ fn init(home: PathBuf) -> ::std::io::Result<()> {
             println!("[NOTE] todo file: {}", content);
         }
     }
+
+    let config = match config::load(home) {
+        Some(config) => config,
+        None => {
+            eprintln!("Cannot load config");
+            exit(1);
+        },
+    };
+    config::handle_config(config, login_shell);
+
+    print!("\x1b[5 q");
+
     Ok(())
 }
 
@@ -278,9 +299,9 @@ fn main() {
     #[allow(unused_variables)]
     let program_name = &args.nth(0).expect("cannot get program name");
     if args.len() == 0 {
-        println!("{}: Not enough arguments", program_name);
+        eprintln!("{}: Not enough arguments", program_name);
         short_help!(program_name);
-        ::std::process::exit(1);
+        exit(1);
     }
     enum State {
         NONE,
@@ -291,93 +312,121 @@ fn main() {
     #[allow(non_snake_case)]
     let HOME = match ::home::home_dir() {
         Some(path) => path,
-        None => panic!("Cannot get HOME directory"),
+        None => {
+            eprintln!("Cannot get HOME directory");
+            exit(1);
+        },
     };
+    let mut login_shell = IsLoginShell::Unspecified;
     let mut state = State::NONE;
     while args.len() > 0 {
         match args.nth(0).unwrap().as_str() {
-            "--help" | "help" => {
+            "--help" | "help" | "-h" => {
                 help!(program_name);
-                ::std::process::exit(0);
+                exit(0);
             }
             "commit" => match state {
                 State::NONE => {
-                    state = State::COMMIT { only_copy: false };
-                }
+                    state = State::COMMIT {
+                        only_copy: false,
+                    };
+                },
                 _ => {
                     eprintln!("Subcommands can be used only with first cmdline argument");
                     short_help!(program_name);
-                    ::std::process::exit(1);
-                }
+                    exit(1);
+                },
             },
             "init" => match state {
                 State::NONE => {
                     state = State::INIT;
-                }
+                },
                 _ => {
                     eprintln!("Subcommands can be used only with first cmdline argument");
                     short_help!(program_name);
-                    ::std::process::exit(1);
-                }
+                    exit(1);
+                },
             },
             "version" | "--version" | "-V" => match state {
                 State::NONE => {
                     state = State::VERSION;
-                }
+                },
                 _ => {
                     eprintln!("Subcommands can be used only with first cmdline argument");
                     short_help!(program_name);
-                    ::std::process::exit(1);
-                }
+                    exit(1);
+                },
             },
             "--only-copy" | "-o" => match state {
                 State::COMMIT { only_copy: _ } => {
                     state = State::COMMIT { only_copy: true };
-                }
+                },
                 _ => {
                     eprintln!("This option can only be used with `commit` subcommand");
                     short_help!(program_name);
-                    ::std::process::exit(1);
-                }
+                    exit(1);
+                },
             },
             "++only-copy" | "+o" => match state {
                 State::COMMIT { only_copy: _ } => {
-                    state = State::COMMIT { only_copy: false };
-                }
+                    state = State::COMMIT {
+                        only_copy: false,
+                    };
+                },
                 _ => {
-                    println!("This option can only be used with `commit` subcommand");
+                    eprintln!("This option can only be used with `commit` subcommand");
                     short_help!(program_name);
-                    ::std::process::exit(1);
-                }
+                    exit(1);
+                },
+            },
+            "--login-shell" | "-l" => {
+                login_shell = IsLoginShell::Yes;
+            },
+            "++login-shell" | "+l" => {
+                login_shell = IsLoginShell::No;
             },
             &_ => {
-                println!("Unknown argument");
+                eprintln!("Unknown argument");
                 short_help!(program_name);
-                ::std::process::exit(1);
+                exit(1);
             }
         }
+    }
+    if matches!(login_shell, IsLoginShell::Unspecified) {
+        login_shell = if program_name.starts_with('-') {
+            IsLoginShell::Yes
+        } else {
+            match ::std::env::var("SHLVL") {
+                Ok(val) => if val.as_str() == "1" {
+                    IsLoginShell::Yes
+                } else {
+                    IsLoginShell::No
+                },
+                Err(_) => IsLoginShell::No,
+            }
+        };
     }
     match state {
         State::NONE => {}
         State::COMMIT { only_copy } => {
             match commit(only_copy, HOME) {
                 Ok(_) => {
-                    ::std::process::exit(0);
+                    exit(0);
                 }
                 Err(e) => {
-                    println!("error: {}", e);
-                    ::std::process::exit(1);
+                    eprintln!("error: {}", e);
+                    exit(1);
                 }
             };
         }
         State::INIT => {
-            match init(HOME) {
+            match init(HOME, login_shell) {
                 Ok(_) => {
-                    ::std::process::exit(0);
+                    exit(0);
                 }
                 Err(e) => {
-                    println!("error: {}", e);
-                    ::std::process::exit(1);
+                    eprintln!("error: {}", e);
+                    exit(1);
                 }
             };
         }
