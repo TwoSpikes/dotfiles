@@ -88,7 +88,7 @@ then
 	export PATH="${HOME}/.cargo/bin:${PATH}"
 fi
 
-echo "[INFO] dotfiles scripted loaded"
+echo "[INFO] dotfiles script loaded"
 
 if command -v 'dotfiles' > /dev/null 2>&1
 then
