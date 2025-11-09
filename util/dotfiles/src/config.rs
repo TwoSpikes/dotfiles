@@ -57,7 +57,7 @@ impl Config {
     pub fn new() -> Self {
         Self {
             autorun_program: AutorunProgram::None,
-            shell: Shell::Zsh,
+            shell: Shell::Bash,
         }
     }
 }

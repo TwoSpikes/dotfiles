@@ -748,7 +748,7 @@ setup_shell() {
 		mkdir -pv "${home}"/.config/dotfiles
 	fi
 	echo "autorun_program = \"${autorun_program}\"" > ~/.config/dotfiles/config.cfg
-	echo "shell = \"${selected_shell}\""
+	echo "shell = \"${selected_shell}\"" >> ~/.config/dotfiles/config.cfg
 
 	case "${selected_shell}" in
 		"bash")
@@ -840,6 +840,7 @@ read_char user_input
 user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 case ${user_input} in
 	"y")
+		cp ${dotfiles}/.bashrc ${home}
 		cp ${dotfiles}/.dotfiles-script.bash ${home}
 		cp -r ${dotfiles}/shscripts/ ${home}
 		cp ${dotfiles}/.bash_profile ${home}
