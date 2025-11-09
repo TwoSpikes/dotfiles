@@ -25,7 +25,7 @@ impl FromStr for AutorunProgram {
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input {
             "Neovim" => Ok(Self::Neovim),
-            "none" => Ok(Self::None),
+            "None" => Ok(Self::None),
             _ => Err(()),
         }
     }
