@@ -461,6 +461,7 @@ determine_package_manager
 echo ""
 
 echo "Checking for internet..."
+echo "Press CTRL+c to skip"
 if ! "${presume_no_internet}"
 then
 	ping -c 1 8.8.8.8 > /dev/null
@@ -1673,12 +1674,17 @@ do
 
 	if test ${enter_is_selected} -eq 1
 	then
-		current_menu_item="$(expr ${privius_menu_item} + 1)"
+		if test ${privius_menu_item} -eq 7 && test -z "${TERMUX_VERSION}"
+		then
+			current_menu_item="$(expr ${privius_menu_item} + 2)"
+		else
+			current_menu_item="$(expr ${privius_menu_item} + 1)"
+		fi
 		enter_is_selected=0
 	else
 		echo "What would you like to do?"
 		echo ""
-		echo "enter) Next menu item: $(expr ${privius_menu_item} + 1)"
+		echo "enter) Next menu item: ${current_menu_item}"
 		echo "1) Select shell (selected: ${selected_shell})"
 		echo "2) Setup shell (done: ${shell_is_set_up})"
 		echo "3) Setup Common Lisp (done: ${common_lisp_is_set_up})"
