@@ -116,38 +116,6 @@ fn copy_dir_all(
     }
     Ok(())
 }
-fn find_vim_vimruntime_path(is_termux: bool) -> String {
-    let paths = ::std::fs::read_dir(if cfg!(target_os = "windows") {
-        "/c/Program Files/Vim/share/vim"
-    } else {
-        if is_termux {
-            "/data/data/com.termux/files/usr/share/vim"
-        } else {
-            "/usr/share/vim"
-        }
-    })
-    .unwrap();
-    let mut maxver: Option<u16> = None;
-    for path in paths {
-        let path = path.unwrap().path();
-        let mut filename = path.file_name().unwrap().to_str().unwrap();
-        if filename.starts_with("vim") {
-            let mut chars = filename.chars();
-            _ = chars.next();
-            _ = chars.next();
-            _ = chars.next();
-            filename = chars.as_str();
-            let version = filename.parse::<u16>().unwrap();
-            if match maxver {
-                None => true,
-                Some(maxver) => version > maxver,
-            } {
-                maxver = Some(version);
-            }
-        }
-    }
-    format!("vim{}", maxver.unwrap())
-}
 
 fn commit(only_copy: bool, #[allow(non_snake_case)] HOME: PathBuf) -> ::std::io::Result<()> {
     let is_termux: bool = ::std::env::var("TERMUX_VERSION").is_ok();
