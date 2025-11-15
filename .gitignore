@@ -1,6 +1,12 @@
 *~
 util/dotfiles/target/
 util/dotfiles/Cargo.lock
+util/dotfilesctldev/target/
+util/dotfilesctldev/Cargo.lock
+util/libdotfilesctlcfg/target/
+util/libdotfilesctlcfg/Cargo.lock
+util/libdotfilesctldev/target/
+util/libdotfilesctldev/Cargo.lock
 .emacs.d/config.el
 .emacs.d/elpaca/
 .emacs.d/elpa/

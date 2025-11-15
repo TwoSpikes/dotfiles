@@ -33,8 +33,7 @@ macro_rules! usage {
 macro_rules! commands {
     () => {
         println!("COMAMNDS (case sensitive):");
-        println!("\tcommit       Commit changes to dotfiles repo");
-        println!("\thelp         Show this help");
+        println!("\thelp         Show this help message");
         println!("\tversion --version -V     ");
         println!("\t             Show version");
         println!("\tinit         Initialize dotfiles");
@@ -47,9 +46,6 @@ macro_rules! options {
         println!("\tCommon:");
         println!("\t\t--login-shell -l     Presume this is a login_shell");
         println!("\t\t++login-shell +l     Presume this is not a login_shell");
-        println!("\tFor 'commit' subcommand:");
-        println!("\t\t--only-copy -o       Only copy, but not commit");
-        println!("\t\t++only-copy +o       Copy and commit (default)");
     };
 }
 
@@ -97,76 +93,6 @@ macro_rules! run_as_superuser_if_needed {
                 .expect("failed to execute child process")
         }
     };
-}
-
-// Copyied from StackOverflow: https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust
-fn copy_dir_all(
-    src: impl AsRef<::std::path::Path> + ::std::convert::AsRef<::std::path::Path>,
-    dst: impl AsRef<::std::path::Path> + ::std::convert::AsRef<::std::path::Path>,
-) -> ::std::io::Result<()> {
-    _ = ::std::fs::create_dir_all(&dst);
-    for entry in ::std::fs::read_dir(src)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            _ = copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()));
-        } else {
-            _ = ::std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()));
-        }
-    }
-    Ok(())
-}
-
-fn commit(only_copy: bool, #[allow(non_snake_case)] HOME: PathBuf) -> ::std::io::Result<()> {
-    let is_termux: bool = ::std::env::var("TERMUX_VERSION").is_ok();
-    _ = ::std::fs::copy(HOME.join(".dotfiles-script.sh"), "./.dotfiles-script.sh");
-    _ = ::std::fs::copy(HOME.join(".bash_profile"), "./.bash_profile");
-    _ = ::std::fs::copy(HOME.join(".bashrc"), "./.bashrc");
-    _ = ::std::fs::copy(HOME.join(".zshrc"), "./.zshrc");
-    _ = ::std::fs::copy(
-        HOME.join(".config/nvim/init.vim"),
-        "./.config/nvim/init.vim",
-    );
-    _ = ::std::fs::copy(HOME.join(".eclrc"), "./.eclrc");
-    _ = ::std::fs::copy(HOME.join("sbclrc"), "./sbclrc");
-    _ = copy_dir_all(HOME.join(".config/helix"), "./.config/helix");
-    _ = ::std::fs::copy(HOME.join("bin/viman"), "./bin/viman");
-    _ = ::std::fs::copy(HOME.join("bin/vipage"), "./bin/vipage");
-    _ = ::std::fs::copy(HOME.join("bin/inverting.sh"), "./bin/inverting.sh");
-    _ = ::std::fs::copy(HOME.join("bin/ls"), "./bin/ls");
-    _ = ::std::fs::copy(HOME.join("bin/n"), "./bin/n");
-    _ = ::std::fs::copy(HOME.join("bin/pie"), "./bin/pie");
-    _ = ::std::fs::copy(HOME.join(".tmux.conf"), "./.tmux.conf");
-    _ = ::std::fs::copy(HOME.join(".gitconfig-default"), "./.gitconfig-default");
-    _ = ::std::fs::copy(HOME.join(".gitmessage"), "./.gitmessage");
-    _ = copy_dir_all(HOME.join(".emacs.d"), "./.emacs.d");
-    _ = ::std::fs::copy(
-        HOME.join(".termux/colors.properties"),
-        "./.termux/colors.properties",
-    );
-    _ = ::std::fs::copy(
-        HOME.join(".termux/termux.properties"),
-        "./.termux/termux.properties",
-    );
-    _ = copy_dir_all(HOME.join(".config/alacritty"), "./.config/alacritty");
-    _ = ::std::fs::copy(HOME.join(".nanorc"), "./.nanorc");
-    _ = ::std::fs::copy(
-        HOME.join(".config/coc/extensions/node_modules/bash-language-server/out/cli.js"),
-        "./\"coc-sh crutch\"/",
-    );
-    if !only_copy {
-        match ::std::process::Command::new("git")
-            .args(["commit", "--all", "--verbose"])
-            .stdout(::std::process::Stdio::inherit())
-            .stdin(::std::process::Stdio::inherit())
-            .output()
-        {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
-    } else {
-        Ok(())
-    }
 }
 
 fn init(home: PathBuf, login_shell: IsLoginShell) -> ::std::io::Result<()> {
@@ -273,7 +199,6 @@ fn main() {
     }
     enum State {
         NONE,
-        COMMIT { only_copy: bool },
         INIT,
         VERSION,
     }
@@ -289,15 +214,14 @@ fn main() {
     let mut state = State::NONE;
     while args.len() > 0 {
         match args.nth(0).unwrap().as_str() {
-            "--help" | "help" | "-h" => {
+            "--help" | "-h" => {
                 help!(program_name);
                 exit(0);
             }
-            "commit" => match state {
+            "help" => match state {
                 State::NONE => {
-                    state = State::COMMIT {
-                        only_copy: false,
-                    };
+                    help!(program_name);
+                    exit(0);
                 },
                 _ => {
                     eprintln!("Subcommands can be used only with first cmdline argument");
@@ -321,28 +245,6 @@ fn main() {
                 },
                 _ => {
                     eprintln!("Subcommands can be used only with first cmdline argument");
-                    short_help!(program_name);
-                    exit(1);
-                },
-            },
-            "--only-copy" | "-o" => match state {
-                State::COMMIT { only_copy: _ } => {
-                    state = State::COMMIT { only_copy: true };
-                },
-                _ => {
-                    eprintln!("This option can only be used with `commit` subcommand");
-                    short_help!(program_name);
-                    exit(1);
-                },
-            },
-            "++only-copy" | "+o" => match state {
-                State::COMMIT { only_copy: _ } => {
-                    state = State::COMMIT {
-                        only_copy: false,
-                    };
-                },
-                _ => {
-                    eprintln!("This option can only be used with `commit` subcommand");
                     short_help!(program_name);
                     exit(1);
                 },
@@ -376,17 +278,6 @@ fn main() {
     }
     match state {
         State::NONE => {}
-        State::COMMIT { only_copy } => {
-            match commit(only_copy, HOME) {
-                Ok(_) => {
-                    exit(0);
-                }
-                Err(e) => {
-                    eprintln!("error: {}", e);
-                    exit(1);
-                }
-            };
-        }
         State::INIT => {
             match init(HOME, login_shell) {
                 Ok(_) => {
