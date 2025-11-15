@@ -62,5 +62,5 @@ If using Vim/NeoVim:
 ## Get dotfiles version
 
 ```console
-$ dotfilesctldev version
+$ dotfiles version
 ```
