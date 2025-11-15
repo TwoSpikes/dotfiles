@@ -818,7 +818,6 @@ user_input=$(echo ${user_input}|awk '{print tolower($0)}')
 case ${user_input} in
 	"y")
 		cp ${dotfiles}/.dotfiles-script.zsh ${home}
-		cp -r ${dotfiles}/shscripts/ ${home}
 		cp -v ${dotfiles}/bin/* ${home}/bin/
 		;;
 	"exit"|"x"|"e"|"q")
@@ -842,7 +841,6 @@ case ${user_input} in
 	"y")
 		cp ${dotfiles}/.bashrc ${home}
 		cp ${dotfiles}/.dotfiles-script.bash ${home}
-		cp -r ${dotfiles}/shscripts/ ${home}
 		cp ${dotfiles}/.bash_profile ${home}
 		cp -v ${dotfiles}/bin/* ${home}/bin/
 		;;
