@@ -29,7 +29,7 @@ pub fn commit(
     let is_termux: bool = ::std::env::var("TERMUX_VERSION").is_ok();
     let home_path = config.home_path.unwrap();
     _ = ::std::fs::copy(home_path.join(".dotfiles-script.sh"), "./.dotfiles-script.sh");
-    _ = ::std::fs::copy(home_path.join(".bash_profile"), "./.bash_profile");
+    _ = ::std::fs::copy(home_path.join(".profile"), "./.profile");
     _ = ::std::fs::copy(home_path.join(".bashrc"), "./.bashrc");
     _ = ::std::fs::copy(home_path.join(".zshrc"), "./.zshrc");
     _ = ::std::fs::copy(home_path.join(".eclrc"), "./.eclrc");
@@ -38,7 +38,6 @@ pub fn commit(
     _ = ::std::fs::copy(home_path.join("bin/viman"), "./bin/viman");
     _ = ::std::fs::copy(home_path.join("bin/vipage"), "./bin/vipage");
     _ = ::std::fs::copy(home_path.join("bin/inverting.sh"), "./bin/inverting.sh");
-    _ = ::std::fs::copy(home_path.join("bin/ls"), "./bin/ls");
     _ = ::std::fs::copy(home_path.join("bin/n"), "./bin/n");
     _ = ::std::fs::copy(home_path.join("bin/pie"), "./bin/pie");
     _ = ::std::fs::copy(home_path.join(".tmux.conf"), "./.tmux.conf");

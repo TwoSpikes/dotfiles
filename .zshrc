@@ -8,3 +8,5 @@ autoload -U compinit
 compinit
 compdef _directories md
 compdef _directories nd
+
+[[ -o login ]] || . ./.dotfiles-script.sh
