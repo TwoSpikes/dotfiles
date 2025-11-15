@@ -1,5 +1,5 @@
-#!/bin/env zsh
-if [[ -o login ]]
+#!/bin/env sh
+if ! test -z "${IS_LOGIN_SHELL}"
 then
 	is_login_shell="--login-shell"
 else
@@ -18,10 +18,6 @@ nd(){
 up(){
 	chdir ..
 }
-autoload -U compinit
-compinit
-compdef _directories md
-compdef _directories nd
 eb(){
 	clear
 	exec bash --noprofile --norc
