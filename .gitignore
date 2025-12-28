@@ -1,8 +1,12 @@
 *~
 util/dotfiles/target/
 util/dotfiles/Cargo.lock
+util/dotfilesctl/target/
+util/dotfilesctl/Cargo.lock
 util/dotfilesctldev/target/
 util/dotfilesctldev/Cargo.lock
+util/libdotfilesctl/target/
+util/libdotfilesctl/Cargo.lock
 util/libdotfilesctlcfg/target/
 util/libdotfilesctlcfg/Cargo.lock
 util/libdotfilesctldev/target/
