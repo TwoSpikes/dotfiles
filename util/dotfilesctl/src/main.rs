@@ -7,5 +7,5 @@ fn main() {
     let di = DotfilesInstaller::new(AutorunProgram::Null, SelectedShell::Bash);
     let pmw = PackageManagerWrapper::new();
     //di.bootstrap(&pmw);
-    di.setup_z4h(&pmw);
+    let _ = di.setup_z4h(&pmw);
 }

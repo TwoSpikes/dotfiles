@@ -1,7 +1,5 @@
 use ::std::path::Path;
 use ::std::path::PathBuf;
-use ::std::os::unix::process::CommandExt;
-use ::std::process::exit;
 use ::std::env::var;
 
 fn is_space(c: char) -> bool {
@@ -59,15 +57,18 @@ enum State {
         identifier: String,
     },
     BackSlash {
+        #[allow(dead_code)]
         name: String,
+        #[allow(dead_code)]
         value: String,
     },
+    #[allow(dead_code)]
     Command {
         name: String,
     },
 }
 
-pub fn load(HOME: PathBuf) -> Option<Config> {
+pub fn load(#[allow(non_snake_case)] HOME: PathBuf) -> Option<Config> {
     let text = match ::std::fs::read_to_string(HOME.join(".config/dotfilesctl/config.cfg")) {
         Ok(text) => text,
         Err(_e) => String::new()
@@ -222,8 +223,8 @@ pub fn load(HOME: PathBuf) -> Option<Config> {
                     continue;
                 }
             },
-            State::BackSlash {name,value} => todo!(),
-            State::Command {name} => todo!(),
+            State::BackSlash { name: _, value: _ } => todo!(),
+            State::Command { name: _ } => todo!(),
         }
     }
     return Some(config);
@@ -271,8 +272,8 @@ fn parse_string_value(config: &mut Config, name: String, value: String) -> Resul
     return Ok(());
 }
 
-fn parse_identifier(config: &mut Config, name: String, identifier: String) -> Result<(), ()> {
-    let identifier = identifier.as_str();
+fn parse_identifier(_config: &mut Config, name: String, identifier: String) -> Result<(), ()> {
+    let _identifier = identifier.as_str();
     match name.as_str() {
         _ => {
             eprintln!("Unknown name: {}", name);

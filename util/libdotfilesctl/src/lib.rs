@@ -1,10 +1,8 @@
-use ::std::borrow::Borrow;
 use ::std::io::{Error, ErrorKind, Write};
 use ::std::fs::{read_to_string, OpenOptions, copy};
-use ::std::process::{exit, Stdio, Command};
+use ::std::process::{Stdio, Command};
 use ::std::path::PathBuf;
 use ::std::str;
-use ::std::sync::Arc;
 use ::std::fmt::Formatter;
 
 pub mod package_manager_wrapper;
@@ -80,8 +78,6 @@ pub struct DotfilesInstaller {
     pub config: Config,
     pub osinfo: Osinfo,
 
-    git_found: bool,
-
     autorun_program: AutorunProgram,
     selected_shell: SelectedShell,
 }
@@ -104,8 +100,6 @@ impl DotfilesInstaller {
             config,
             osinfo: Osinfo::new(),
 
-            git_found: which("git").is_ok(),
-
             autorun_program,
             selected_shell,
         }
@@ -124,6 +118,13 @@ impl DotfilesInstaller {
             ])
             .output()
             .expect("Failed to get output of git process");
+
+        if !output.status.success() {
+            return Err(Error::new(ErrorKind::Other, match output.status.code() {
+                Some(x) => format!("git finished with error code: {}", x),
+                None => "git was killed by a signal".into(),
+            }));
+        }
 
         let version_file_path = (*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-version");
         if !version_file_path.exists() {
@@ -152,7 +153,7 @@ impl DotfilesInstaller {
                     which("ld64.lld").is_err() &&
                         which("lld-link").is_err() &&
                         which("wasm-ld").is_err() {
-                            pmw.install_package("gcc");
+                            if pmw.install_package("gcc").is_err() { return false; };
                 }
                 return download_rustup(&pmw).is_ok();
             },
@@ -261,7 +262,6 @@ impl DotfilesInstaller {
         };
 
         ::std::env::set_current_dir(*self.config.dotfiles_path.clone().unwrap())?;
-        println!("Building...");
 
         let status = run_as_superuser_if_needed!(
             "cargo",
@@ -273,7 +273,6 @@ impl DotfilesInstaller {
         );
 
         if !status.success() {
-            eprintln!("Build failed");
             return Err(Error::new(ErrorKind::Other, "Build failed"));
         }
 
@@ -308,8 +307,8 @@ impl DotfilesInstaller {
             .create(true)
             .open(dotfiles_config_path.join("config.cfg"))?;
 
-        writeln!(&mut file, "autorun_program = {}", self.autorun_program);
-        writeln!(&mut file, "shell = {}", self.selected_shell);
+        writeln!(&mut file, "autorun_program = {}", self.autorun_program)?;
+        writeln!(&mut file, "shell = {}", self.selected_shell)?;
 
         use SelectedShell::*;
         match self.selected_shell {
@@ -362,7 +361,7 @@ impl DotfilesInstaller {
             .append(true)
             .create(true)
             .open(zshrc_path)?;
-        writeln!(&mut f, "\n# zsh-bd\n. $HOME/.zsh/plugins/bd/bd.zsh");
+        writeln!(&mut f, "\n# zsh-bd\n. $HOME/.zsh/plugins/bd/bd.zsh")?;
 
         Ok(())
     }
@@ -401,11 +400,15 @@ impl DotfilesInstaller {
 
         Ok(())
     }
+
+    pub fn setup_helix(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        pmw.check_dependency_result("helix", "hx")?;
+        Ok(())
+    }
 }
 
 fn download_rustup(pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
     pmw.check_dependency_result("curl", "curl")?;
-    eprintln!("Downloading rustup from https://sh.rustup.rs ...");
 
     let output = Command::new("curl")
         .args(&[

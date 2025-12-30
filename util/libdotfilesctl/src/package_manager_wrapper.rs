@@ -137,7 +137,7 @@ impl PackageManagerWrapper {
         let program_name = Template::parse(templates.0)
             .expect("Unable to parse template")
             .render(
-            &&vals(|key| Some(name.to_string().into()))
+            &&vals(|_key| Some(name.to_string().into()))
         ).expect("Unable to render template of program name");
 
         let mut program_arguments: Vec<String> = Vec::new();
@@ -147,7 +147,7 @@ impl PackageManagerWrapper {
                 .expect("Unable to parse template");
             let name = name.to_string();
             program_arguments.push(arg.render(
-                &&vals(|key| Some(name.clone().into()))
+                &&vals(|_key| Some(name.clone().into()))
             ).expect("Unable to render template of program argument"));
         }
 
@@ -158,7 +158,7 @@ impl PackageManagerWrapper {
 
     pub fn install_package_persistently(&self, name: &str, exe_name: &str) -> bool {
         loop {
-            self.install_package(name);
+            if self.install_package(name).is_err() { return false; };
             if which(exe_name).is_ok() { return true; }
             eprint!("Would you like to try again? [y/N]: ");
             let c = Term::read_key(&Term::stdout());
@@ -188,7 +188,7 @@ impl PackageManagerWrapper {
 
     pub fn install_package_persistently_any(&self, name: &str, exe_names: Vec<&str>) -> bool {
         loop {
-            self.install_package(name);
+            if self.install_package(name).is_err() { return false; };
             for i in &exe_names {
                 if which(i).is_ok() { return true; }
             }
