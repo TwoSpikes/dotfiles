@@ -1,13 +1,17 @@
 use ::std::borrow::Borrow;
 use ::std::io::{Error, ErrorKind, Write};
-use ::std::fs::read_to_string;
+use ::std::fs::{read_to_string, OpenOptions, copy};
 use ::std::process::{exit, Stdio, Command};
 use ::std::path::PathBuf;
 use ::std::str;
 use ::std::sync::Arc;
+use ::std::fmt::Formatter;
 
 pub mod package_manager_wrapper;
 use self::package_manager_wrapper::PackageManagerWrapper;
+mod utils;
+use utils::copy_dir_all;
+use utils::head;
 
 use ::libdotfilesctlcfg::Config;
 
@@ -40,15 +44,50 @@ impl Osinfo {
     }
 }
 
+pub enum AutorunProgram {
+    Null,
+    Neovim,
+}
+
+impl ::std::fmt::Display for AutorunProgram {
+    fn fmt(&self, f: &mut Formatter) -> ::std::fmt::Result {
+        use AutorunProgram::*;
+
+        write!(f, "{}", match self {
+            Null => "None",
+            Neovim => "Neovim",
+        })
+    }
+}
+
+pub enum SelectedShell {
+    Bash,
+    Zsh,
+}
+
+impl ::std::fmt::Display for SelectedShell {
+    fn fmt(&self, f: &mut Formatter) -> ::std::fmt::Result {
+        use SelectedShell::*;
+
+        write!(f, "{}", match self {
+            Bash => "bash",
+            Zsh => "zsh",
+        })
+    }
+}
+
 pub struct DotfilesInstaller {
     pub config: Config,
     pub osinfo: Osinfo,
 
     git_found: bool,
+
+    autorun_program: AutorunProgram,
+    selected_shell: SelectedShell,
 }
 
 impl DotfilesInstaller {
-    pub fn new() -> Self {
+    pub fn new(autorun_program: AutorunProgram, selected_shell: SelectedShell) -> Self {
         let home_path = home_dir().expect("Cannot get home directory");
         let root_path = Some(Box::new(PathBuf::from(match ::std::env::var("PREFIX") {
             Ok(x) => x,
@@ -66,11 +105,14 @@ impl DotfilesInstaller {
             osinfo: Osinfo::new(),
 
             git_found: which("git").is_ok(),
+
+            autorun_program,
+            selected_shell,
         }
     }
 
     fn get_latest_dotfiles(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
-        pmw.check_dependency_result("git")?;
+        pmw.check_dependency_result("git", "git")?;
 
         let output = Command::new("git")
             .args(&[
@@ -91,8 +133,37 @@ impl DotfilesInstaller {
         return Ok(());
     }
 
+    fn check_for_cargo(&self, pmw: &PackageManagerWrapper) -> bool {
+        if which("cargo").is_ok() { return true; }
+
+        match self.osinfo.os.as_str() {
+            "Termux"|
+            "Void"|
+            "FreeBSD"|
+            "Arch Linux"|
+            "Arch Linux 32" => {
+                return pmw.check_dependency("rust", "cargo");
+            },
+            "openSUSE Leap" | "openSUSE Tumbleweed" => {
+                return pmw.check_dependency("rustup", "cargo");
+            },
+            "Alpine Linux" => {
+                if which("ld.lld").is_err() &&
+                    which("ld64.lld").is_err() &&
+                        which("lld-link").is_err() &&
+                        which("wasm-ld").is_err() {
+                            pmw.install_package("gcc");
+                }
+                return download_rustup(&pmw).is_ok();
+            },
+            _ => {
+                return download_rustup(&pmw).is_ok();
+            },
+        }
+    }
+
     pub fn bootstrap(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
-        pmw.check_dependency_result("curl")?;
+        pmw.check_dependency_result("curl", "curl")?;
         let version_file_path = (*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-version");
         let local_dotfiles_version = read_to_string(version_file_path);
         let local_dotfiles_version = match local_dotfiles_version {
@@ -185,12 +256,155 @@ impl DotfilesInstaller {
             return Err(Error::new(ErrorKind::Interrupted, "Cancelled by user"));
         }
 
+        if !self.check_for_cargo(&pmw) {
+            return Err(Error::new(ErrorKind::Other, "Failed to install Cargo"));
+        };
+
+        ::std::env::set_current_dir(*self.config.dotfiles_path.clone().unwrap())?;
+        println!("Building...");
+
+        let status = run_as_superuser_if_needed!(
+            "cargo",
+            &[
+                "install",
+                "--path",
+                "util/dotfiles",
+            ]
+        );
+
+        if !status.success() {
+            eprintln!("Build failed");
+            return Err(Error::new(ErrorKind::Other, "Build failed"));
+        }
+
         return Ok(());
+    }
+
+    fn setup_zsh(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        pmw.check_dependency_result("zsh", "zsh")?;
+        copy((*self.config.dotfiles_path.clone().unwrap()).join(".zshrc"), *self.config.home_path.clone().unwrap())?;
+        copy((*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-script.sh"), *self.config.home_path.clone().unwrap())?;
+        copy((*self.config.dotfiles_path.clone().unwrap()).join(".profile"), *self.config.home_path.clone().unwrap())?;
+        copy_dir_all((*self.config.dotfiles_path.clone().unwrap()).join("bin"), (*self.config.home_path.clone().unwrap()).join("bin"))?;
+        Ok(())
+    }
+
+    fn setup_bash(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        pmw.check_dependency_result("bash", "bash")?;
+        copy((*self.config.dotfiles_path.clone().unwrap()).join(".bashrc"), *self.config.home_path.clone().unwrap())?;
+        copy((*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-script.sh"), *self.config.home_path.clone().unwrap())?;
+        copy((*self.config.dotfiles_path.clone().unwrap()).join(".profile"), *self.config.home_path.clone().unwrap())?;
+        copy_dir_all((*self.config.dotfiles_path.clone().unwrap()).join("bin"), (*self.config.home_path.clone().unwrap()).join("bin"))?;
+        Ok(())
+    }
+
+    pub fn setup_shell(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        let dotfiles_config_path = (*self.config.dotfiles_path.clone().unwrap()).join(".config/dotfiles");
+
+        ::std::fs::create_dir_all(&dotfiles_config_path)?;
+
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(dotfiles_config_path.join("config.cfg"))?;
+
+        writeln!(&mut file, "autorun_program = {}", self.autorun_program);
+        writeln!(&mut file, "shell = {}", self.selected_shell);
+
+        use SelectedShell::*;
+        match self.selected_shell {
+            Bash => self.setup_bash(&pmw),
+            Zsh => self.setup_zsh(&pmw),
+        }
+    }
+
+    pub fn setup_common_lisp(&self) -> ::std::io::Result<()> {
+        copy((*self.config.dotfiles_path.clone().unwrap()).join(".eclrc"), *self.config.home_path.clone().unwrap())?;
+        copy((*self.config.dotfiles_path.clone().unwrap()).join("sbclrc"), *self.config.home_path.clone().unwrap())?;
+        Ok(())
+    }
+
+    pub fn setup_emacs(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        pmw.check_dependency_result("emacs", "emacs")?;
+
+        let emacs_config_path = (*self.config.dotfiles_path.clone().unwrap()).join(".emacs.d");
+
+        ::std::fs::create_dir_all(&emacs_config_path)?;
+
+        copy_dir_all(emacs_config_path, *self.config.home_path.clone().unwrap())?;
+
+        Ok(())
+    }
+
+    pub fn setup_bd(&self) -> ::std::io::Result<()> {
+        let bd_path = (*self.config.home_path.clone().unwrap()).join(".zsh/plugins/bd");
+        let bd_script_path = bd_path.clone().join("bd.zsh");
+        let zshrc_path = (*self.config.home_path.clone().unwrap()).join(".zshrc");
+
+        if !bd_script_path.exists() {
+
+            let output = Command::new("curl")
+                .args(&[
+                    "https://raw.githubusercontent.com/Tarrasch/zsh-bd/master/bd.zsh",
+                ])
+                .output()
+                .expect("Failed to get output of curl process");
+            let output = str::from_utf8(&output.stdout).expect("Output of curl was not a valid utf-8 text");
+
+            let mut f = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(bd_script_path)?;
+            write!(&mut f, "{}", output)?;
+        }
+
+        let mut f = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(zshrc_path)?;
+        writeln!(&mut f, "\n# zsh-bd\n. $HOME/.zsh/plugins/bd/bd.zsh");
+
+        Ok(())
+    }
+
+    pub fn setup_z4h(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        pmw.check_dependency_result("curl", "curl")?;
+
+        let curl_output = Command::new("curl")
+            .args(&[
+                "-fsS",
+                "https://raw.githubusercontent.com/romkatv/zsh4humans/v5/install",
+            ])
+            .output()
+            .expect("Failed to get output of curl process");
+
+        if !curl_output.status.success() {
+            return Err(Error::new(ErrorKind::Other, match curl_output.status.code() {
+                Some(x) => format!("curl finished with error code: {}", x),
+                None => "curl was killed by a signal".into(),
+            }));
+        }
+
+        let output = str::from_utf8(&curl_output.stdout).expect("Output of curl was not a valid utf-8 text");
+        let output = head(output.to_string(), -1);
+
+        let mut shell = Command::new("sh")
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn sh process");
+
+        let mut stdin = shell.stdin.take().expect("Failed to take over input of sh process");
+
+        stdin.write_all(output.as_bytes()).expect("Failed to write to sh");
+
+        shell.wait()?;
+
+        Ok(())
     }
 }
 
-pub fn download_rustup(pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
-    pmw.check_dependency_result("curl")?;
+fn download_rustup(pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+    pmw.check_dependency_result("curl", "curl")?;
     eprintln!("Downloading rustup from https://sh.rustup.rs ...");
 
     let output = Command::new("curl")
@@ -205,8 +419,10 @@ pub fn download_rustup(pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         .expect("Failed get output of curl process");
 
     if !output.status.success() {
-        eprintln!("curl failed");
-        exit(1);
+        return Err(Error::new(ErrorKind::Other, match output.status.code() {
+            Some(x) => format!("curl finished with error code: {}", x),
+            None => "curl was killed by a signal".into(),
+        }));
     }
 
     let mut process = Command::new("sh")

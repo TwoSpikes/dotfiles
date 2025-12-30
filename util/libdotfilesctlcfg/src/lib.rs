@@ -1,7 +1,5 @@
 use ::std::path::Path;
 use ::std::path::PathBuf;
-use ::std::str::FromStr;
-use ::std::process::Command;
 use ::std::os::unix::process::CommandExt;
 use ::std::process::exit;
 use ::std::env::var;

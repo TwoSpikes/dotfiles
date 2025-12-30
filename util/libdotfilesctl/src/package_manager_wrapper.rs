@@ -1,28 +1,10 @@
 use ::std::io::{Error, ErrorKind};
 
+use crate::run_as_superuser_if_needed;
+
 use ::which::which;
 use ::leon::{Template, vals};
 use ::console::{Term, Key};
-
-macro_rules! run_as_superuser_if_needed {
-    ($name:expr, $args:expr) => {
-        if ::whoami::realname() != "root"
-            && !::std::env::var("TERMUX_VERSION")
-                .expect("Cannot get envvar")
-                .is_empty()
-        {
-            ::std::process::Command::new($name)
-                .args($args)
-                .status()
-                .expect("failed to execute child process")
-        } else {
-            ::runas::Command::new($name)
-                .args($args)
-                .status()
-                .expect("failed to execute child process")
-        }
-    };
-}
 
 enum PackageManager {
     NotFound,
@@ -174,10 +156,10 @@ impl PackageManagerWrapper {
         Ok(())
     }
 
-    pub fn install_package_persistently(&self, name: &str) -> bool {
+    pub fn install_package_persistently(&self, name: &str, exe_name: &str) -> bool {
         loop {
             self.install_package(name);
-            if which(name).is_ok() { return true; }
+            if which(exe_name).is_ok() { return true; }
             eprint!("Would you like to try again? [y/N]: ");
             let c = Term::read_key(&Term::stdout());
             eprintln!();
@@ -189,16 +171,52 @@ impl PackageManagerWrapper {
         }
     }
 
-    pub fn check_dependency(&self, name: &str) -> bool {
-        if which(name).is_ok() { return true; }
+    pub fn check_dependency(&self, name: &str, exe_name: &str) -> bool {
+        if which(exe_name).is_ok() { return true; }
 
-        return self.install_package_persistently(name);
+        return self.install_package_persistently(name, exe_name);
     }
 
-    pub fn check_dependency_result(&self, name: &str) -> ::std::io::Result<()> {
-        if which(name).is_ok() { return Ok(()); }
+    pub fn check_dependency_result(&self, name: &str, exe_name: &str) -> ::std::io::Result<()> {
+        if which(exe_name).is_ok() { return Ok(()); }
 
-        return match self.install_package_persistently(name) {
+        return match self.install_package_persistently(name, exe_name) {
+            true => Ok(()),
+            false => Err(Error::new(ErrorKind::Other, format!("Couldn't install package {}", name))),
+        };
+    }
+
+    pub fn install_package_persistently_any(&self, name: &str, exe_names: Vec<&str>) -> bool {
+        loop {
+            self.install_package(name);
+            for i in &exe_names {
+                if which(i).is_ok() { return true; }
+            }
+            eprint!("Would you like to try again? [y/N]: ");
+            let c = Term::read_key(&Term::stdout());
+            eprintln!();
+            let c = match c {
+                Ok(x) => x,
+                Err(_) => return false,
+            };
+            if !matches!(c, Key::Char('y')) { return false; }
+        }
+    }
+
+    pub fn check_dependency_any(&self, name: &str, exe_names: Vec<&str>) -> bool {
+        for i in &exe_names {
+            if which(i).is_ok() { return true; }
+        }
+
+        return self.install_package_persistently_any(name, exe_names);
+    }
+
+    pub fn check_dependency_result_any(&self, name: &str, exe_names: Vec<&str>) -> ::std::io::Result<()> {
+        for i in &exe_names {
+            if which(i).is_ok() { return Ok(()); }
+        }
+
+        return match self.install_package_persistently_any(name, exe_names) {
             true => Ok(()),
             false => Err(Error::new(ErrorKind::Other, format!("Couldn't install package {}", name))),
         };
