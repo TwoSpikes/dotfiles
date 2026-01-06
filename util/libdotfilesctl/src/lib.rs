@@ -4,18 +4,75 @@ use ::std::process::{Stdio, Command};
 use ::std::path::PathBuf;
 use ::std::str;
 use ::std::fmt::Formatter;
+use ::std::env::{current_dir, set_current_dir};
+use ::std::ffi::OsStr;
 
 pub mod package_manager_wrapper;
 use self::package_manager_wrapper::PackageManagerWrapper;
 mod utils;
-use utils::copy_dir_all;
-use utils::head;
+use utils::{copy_dir_all, head, clone};
 
 use ::libdotfilesctlcfg::Config;
 
 use ::dirs::home_dir;
 use ::which::which;
 use ::console::{Term, Key};
+//use ::nix::pty::openpty;
+
+fn just_do_a_command(name: &str) -> ::std::io::Result<()> {
+    let output = Command::new(name)
+        .output()
+        .expect(format!("Failed to get output of {} command", name).as_str());
+
+    if !output.status.success() {
+        return Err(Error::new(ErrorKind::Other, match output.status.code() {
+            Some(x) => format!("{} finished with exit code {}", name, x),
+            None => format!("{} was killed by some signal", name),
+        }));
+    }
+
+    Ok(())
+}
+
+fn just_do_a_command_with_args<I, S>(name: &str, args: I) -> ::std::io::Result<()>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let output = Command::new(name)
+        .args(args)
+        .output()
+        .expect(format!("Failed to get output of {} command", name).as_str());
+
+    if !output.status.success() {
+        return Err(Error::new(ErrorKind::Other, match output.status.code() {
+            Some(x) => format!("{} finished with exit code {}", name, x),
+            None => format!("{} was killed by some signal", name),
+        }));
+    }
+
+    Ok(())
+}
+
+fn just_do_a_command_with_args_in_dir(name: &str, args: &Vec<&str>, dir: PathBuf) -> ::std::io::Result<()> {
+    let previous_working_directory = current_dir()?;
+
+    let output = Command::new(name)
+        .args(args)
+        .output()
+        .expect(format!("Failed to get output of {} command", name).as_str());
+
+    set_current_dir(previous_working_directory)?;
+
+    if !output.status.success() {
+        return Err(Error::new(ErrorKind::Other, match output.status.code() {
+            Some(x) => format!("{} finished with exit code {}", name, x),
+            None => format!("{} was killed by some signal", name),
+        }));
+    }
+
+    Ok(())
+}
 
 pub struct Osinfo {
     pub os: String,
@@ -42,6 +99,7 @@ impl Osinfo {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum AutorunProgram {
     Null,
     Neovim,
@@ -58,6 +116,7 @@ impl ::std::fmt::Display for AutorunProgram {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum SelectedShell {
     Bash,
     Zsh,
@@ -74,16 +133,22 @@ impl ::std::fmt::Display for SelectedShell {
     }
 }
 
+struct InformationAboutUser {
+    name: String,
+    email: String,
+}
+
 pub struct DotfilesInstaller {
     pub config: Config,
     pub osinfo: Osinfo,
+    pub information_about_user: Option<InformationAboutUser>,
 
-    autorun_program: AutorunProgram,
-    selected_shell: SelectedShell,
+    autorun_program: Option<AutorunProgram>,
+    selected_shell: Option<SelectedShell>,
 }
 
 impl DotfilesInstaller {
-    pub fn new(autorun_program: AutorunProgram, selected_shell: SelectedShell) -> Self {
+    pub fn new() -> Self {
         let home_path = home_dir().expect("Cannot get home directory");
         let root_path = Some(Box::new(PathBuf::from(match ::std::env::var("PREFIX") {
             Ok(x) => x,
@@ -99,9 +164,17 @@ impl DotfilesInstaller {
         Self {
             config,
             osinfo: Osinfo::new(),
+            information_about_user: None,
 
-            autorun_program,
-            selected_shell,
+            autorun_program: None,
+            selected_shell: None,
+        }
+    }
+
+    fn copy(&self, src: &str, dst: &str) -> ::std::io::Result<()> {
+        match copy((*self.config.dotfiles_path.clone().unwrap()).join(src), (*self.config.home_path.clone().unwrap()).join(dst)) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -261,7 +334,7 @@ impl DotfilesInstaller {
             return Err(Error::new(ErrorKind::Other, "Failed to install Cargo"));
         };
 
-        ::std::env::set_current_dir(*self.config.dotfiles_path.clone().unwrap())?;
+        set_current_dir(*self.config.dotfiles_path.clone().unwrap())?;
 
         let status = run_as_superuser_if_needed!(
             "cargo",
@@ -279,7 +352,7 @@ impl DotfilesInstaller {
         return Ok(());
     }
 
-    fn setup_zsh(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+    pub fn setup_zsh(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("zsh", "zsh")?;
         copy((*self.config.dotfiles_path.clone().unwrap()).join(".zshrc"), *self.config.home_path.clone().unwrap())?;
         copy((*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-script.sh"), *self.config.home_path.clone().unwrap())?;
@@ -288,7 +361,7 @@ impl DotfilesInstaller {
         Ok(())
     }
 
-    fn setup_bash(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+    pub fn setup_bash(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("bash", "bash")?;
         copy((*self.config.dotfiles_path.clone().unwrap()).join(".bashrc"), *self.config.home_path.clone().unwrap())?;
         copy((*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-script.sh"), *self.config.home_path.clone().unwrap())?;
@@ -307,11 +380,11 @@ impl DotfilesInstaller {
             .create(true)
             .open(dotfiles_config_path.join("config.cfg"))?;
 
-        writeln!(&mut file, "autorun_program = {}", self.autorun_program)?;
-        writeln!(&mut file, "shell = {}", self.selected_shell)?;
+        writeln!(&mut file, "autorun_program = {}", self.autorun_program.unwrap())?;
+        writeln!(&mut file, "shell = {}", self.selected_shell.unwrap())?;
 
         use SelectedShell::*;
-        match self.selected_shell {
+        match self.selected_shell.unwrap() {
             Bash => self.setup_bash(&pmw),
             Zsh => self.setup_zsh(&pmw),
         }
@@ -387,6 +460,8 @@ impl DotfilesInstaller {
         let output = str::from_utf8(&curl_output.stdout).expect("Output of curl was not a valid utf-8 text");
         let output = head(output.to_string(), -1);
 
+        //let pty = openpty(None, None)?;
+
         let mut shell = Command::new("sh")
             .stdin(Stdio::piped())
             .spawn()
@@ -403,6 +478,128 @@ impl DotfilesInstaller {
 
     pub fn setup_helix(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("helix", "hx")?;
+
+        let helix_config_path = (*self.config.dotfiles_path.clone().unwrap()).join(".config/helix");
+
+        ::std::fs::create_dir_all(&helix_config_path)?;
+
+        copy_dir_all(helix_config_path, (*self.config.home_path.clone().unwrap()).join(".config"))?;
+
+        Ok(())
+    }
+
+    pub fn setup_extra_nvim(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        pmw.check_dependency_result("git", "git")?;
+
+        let extra_nvim_path = (*self.config.home_path
+            .clone().unwrap()).join("extra.nvim");
+
+        clone(
+            "https://github.com/TwoSpikes/extra.nvim.git",
+            extra_nvim_path.clone(),
+            1
+        )?;
+
+        let previous_working_directory = current_dir()?;
+        set_current_dir(extra_nvim_path.join("util/exnvim"))?;
+
+        let output = Command::new("cargo")
+            .args(&[
+                "run",
+                "--",
+                "install",
+            ])
+            .output()
+            .expect("Failed to get output of cargo command");
+
+        set_current_dir(previous_working_directory)?;
+
+        if !output.status.success() {
+            return Err(Error::new(ErrorKind::Other, match output.status.code() {
+                Some(x) => format!("cargo finished with exit code {}", x),
+                None => "cargo was killed by some signal".to_string(),
+            }));
+        }
+
+        Ok(())
+    }
+
+    pub fn setup_git(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_termux(&self) -> ::std::io::Result<()> {
+        just_do_a_command("termux-setup-storage")
+    }
+
+    pub fn setup_tmux(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_nano(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_alacritty(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_ctags(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_nodejs(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_pnpm(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_mc_or_far(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_python(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_pip(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_pipx(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_golang(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_delve(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_java(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
+        Ok(())
+    }
+
+    pub fn setup_coursier(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
+        todo!();
         Ok(())
     }
 }

@@ -1,3 +1,7 @@
+use ::std::io::{Error, ErrorKind};
+use ::std::path::{Path, PathBuf};
+use ::std::process::Command;
+
 #[macro_export]
 macro_rules! run_as_superuser_if_needed {
     ($name:expr, $args:expr) => {
@@ -22,10 +26,11 @@ macro_rules! run_as_superuser_if_needed {
 // Copyied from StackOverflow: https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust
 // Archived: https://drive.google.com/file/d/1m5JVCCNYz0B4fFp9CfGbtQQHM8YQKoVk/view
 pub fn copy_dir_all(
-    src: impl AsRef<::std::path::Path> + ::std::convert::AsRef<::std::path::Path>,
-    dst: impl AsRef<::std::path::Path> + ::std::convert::AsRef<::std::path::Path>,
+    src: impl AsRef<Path> + ::std::convert::AsRef<Path>,
+    dst: impl AsRef<Path> + ::std::convert::AsRef<Path>,
 ) -> ::std::io::Result<()> {
     _ = ::std::fs::create_dir_all(&dst);
+
     for entry in ::std::fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
@@ -35,6 +40,7 @@ pub fn copy_dir_all(
             _ = ::std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()));
         }
     }
+
     Ok(())
 }
 
@@ -68,4 +74,26 @@ pub fn head(s: String, n: isize) -> String {
         lines
     };
     lines.join("\n")
+}
+
+pub fn clone(url: &str, path: PathBuf, depth: usize) -> ::std::io::Result<()> {
+    let mut cmd = Command::new("git");
+    cmd.arg("clone");
+    if depth != 0 {
+        cmd.arg("--depth=1");
+    }
+    cmd.arg(url);
+    cmd.arg(path);
+    let output = cmd
+        .output()
+        .expect("Failed to get output of git process");
+
+    if !output.status.success() {
+        return Err(Error::new(ErrorKind::Other, match output.status.code() {
+            Some(x) => format!("git finished with error code: {}", x),
+            None => "git was killed by a signal".into(),
+        }));
+    }
+
+    Ok(())
 }
