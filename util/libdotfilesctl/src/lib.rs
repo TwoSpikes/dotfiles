@@ -34,6 +34,7 @@ fn just_do_a_command(name: &str) -> ::std::io::Result<()> {
     Ok(())
 }
 
+#[allow(unused)]
 fn just_do_a_command_with_args<I, S>(name: &str, args: I) -> ::std::io::Result<()>
 where
     I: IntoIterator<Item = S>,
@@ -54,6 +55,7 @@ where
     Ok(())
 }
 
+#[allow(unused)]
 fn just_do_a_command_with_args_in_dir(name: &str, args: &Vec<&str>, dir: PathBuf) -> ::std::io::Result<()> {
     let previous_working_directory = current_dir()?;
 
@@ -150,14 +152,15 @@ pub struct DotfilesInstaller {
 impl DotfilesInstaller {
     pub fn new() -> Self {
         let home_path = home_dir().expect("Cannot get home directory");
-        let root_path = Some(Box::new(PathBuf::from(match ::std::env::var("PREFIX") {
+        let dotfiles_path = home_path.join("dotfiles");
+        let root_path = PathBuf::from(match ::std::env::var("PREFIX") {
             Ok(x) => x,
             Err(_) => "/".to_string(),
-        })));
+        });
 
         let config = Config {
-            home_path: Some(Box::new(home_path.clone())),
-            dotfiles_path: Some(Box::new(home_path.join("dotfiles"))),
+            home_path,
+            dotfiles_path,
             root_path,
         };
 
@@ -172,7 +175,14 @@ impl DotfilesInstaller {
     }
 
     fn copy(&self, src: &str, dst: &str) -> ::std::io::Result<()> {
-        match copy((*self.config.dotfiles_path.clone().unwrap()).join(src), (*self.config.home_path.clone().unwrap()).join(dst)) {
+        match copy(self.config.dotfiles_path.join(src), self.config.home_path.join(dst)) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn copy_dir_all(&self, src: &str, dst: &str) -> ::std::io::Result<()> {
+        match copy_dir_all(self.config.dotfiles_path.join(src), self.config.home_path.join(dst)) {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         }
@@ -186,7 +196,7 @@ impl DotfilesInstaller {
                 "clone",
                 "--depth=1",
                 "https://github.com/TwoSpikes/dotfiles.git",
-                (*self.config.dotfiles_path.clone().unwrap())
+                self.config.dotfiles_path
                 .display().to_string().as_str(),
             ])
             .output()
@@ -199,7 +209,7 @@ impl DotfilesInstaller {
             }));
         }
 
-        let version_file_path = (*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-version");
+        let version_file_path = self.config.dotfiles_path.join(".dotfiles-version");
         if !version_file_path.exists() {
             return Err(Error::new(ErrorKind::NotFound, "Failed to get latest dotfiles"));
         }
@@ -238,7 +248,7 @@ impl DotfilesInstaller {
 
     pub fn bootstrap(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("curl", "curl")?;
-        let version_file_path = (*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-version");
+        let version_file_path = self.config.dotfiles_path.join(".dotfiles-version");
         let local_dotfiles_version = read_to_string(version_file_path);
         let local_dotfiles_version = match local_dotfiles_version {
             Ok(x) => Ok(x.trim().to_string()),
@@ -334,7 +344,7 @@ impl DotfilesInstaller {
             return Err(Error::new(ErrorKind::Other, "Failed to install Cargo"));
         };
 
-        set_current_dir(*self.config.dotfiles_path.clone().unwrap())?;
+        set_current_dir(self.config.dotfiles_path.clone())?;
 
         let status = run_as_superuser_if_needed!(
             "cargo",
@@ -354,24 +364,24 @@ impl DotfilesInstaller {
 
     pub fn setup_zsh(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("zsh", "zsh")?;
-        copy((*self.config.dotfiles_path.clone().unwrap()).join(".zshrc"), *self.config.home_path.clone().unwrap())?;
-        copy((*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-script.sh"), *self.config.home_path.clone().unwrap())?;
-        copy((*self.config.dotfiles_path.clone().unwrap()).join(".profile"), *self.config.home_path.clone().unwrap())?;
-        copy_dir_all((*self.config.dotfiles_path.clone().unwrap()).join("bin"), (*self.config.home_path.clone().unwrap()).join("bin"))?;
+        self.copy(".zshrc", "")?;
+        self.copy(".dotfiles-script.sh", "")?;
+        self.copy(".profile", "")?;
+        self.copy_dir_all("bin", "bin")?;
         Ok(())
     }
 
     pub fn setup_bash(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("bash", "bash")?;
-        copy((*self.config.dotfiles_path.clone().unwrap()).join(".bashrc"), *self.config.home_path.clone().unwrap())?;
-        copy((*self.config.dotfiles_path.clone().unwrap()).join(".dotfiles-script.sh"), *self.config.home_path.clone().unwrap())?;
-        copy((*self.config.dotfiles_path.clone().unwrap()).join(".profile"), *self.config.home_path.clone().unwrap())?;
-        copy_dir_all((*self.config.dotfiles_path.clone().unwrap()).join("bin"), (*self.config.home_path.clone().unwrap()).join("bin"))?;
+        self.copy(".bashrc", "")?;
+        self.copy(".dotfiles-script.sh", "")?;
+        self.copy(".profile", "")?;
+        self.copy_dir_all("bin", "bin")?;
         Ok(())
     }
 
     pub fn setup_shell(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
-        let dotfiles_config_path = (*self.config.dotfiles_path.clone().unwrap()).join(".config/dotfiles");
+        let dotfiles_config_path = self.config.dotfiles_path.join(".config/dotfiles");
 
         ::std::fs::create_dir_all(&dotfiles_config_path)?;
 
@@ -391,27 +401,27 @@ impl DotfilesInstaller {
     }
 
     pub fn setup_common_lisp(&self) -> ::std::io::Result<()> {
-        copy((*self.config.dotfiles_path.clone().unwrap()).join(".eclrc"), *self.config.home_path.clone().unwrap())?;
-        copy((*self.config.dotfiles_path.clone().unwrap()).join("sbclrc"), *self.config.home_path.clone().unwrap())?;
+        self.copy(".eclrc", "")?;
+        self.copy("sbclrc", "")?;
         Ok(())
     }
 
     pub fn setup_emacs(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("emacs", "emacs")?;
 
-        let emacs_config_path = (*self.config.dotfiles_path.clone().unwrap()).join(".emacs.d");
+        let emacs_config_path = self.config.dotfiles_path.join(".emacs.d");
 
         ::std::fs::create_dir_all(&emacs_config_path)?;
 
-        copy_dir_all(emacs_config_path, *self.config.home_path.clone().unwrap())?;
+        copy_dir_all(emacs_config_path, self.config.home_path.clone())?;
 
         Ok(())
     }
 
     pub fn setup_bd(&self) -> ::std::io::Result<()> {
-        let bd_path = (*self.config.home_path.clone().unwrap()).join(".zsh/plugins/bd");
+        let bd_path = self.config.home_path.join(".zsh/plugins/bd");
         let bd_script_path = bd_path.clone().join("bd.zsh");
-        let zshrc_path = (*self.config.home_path.clone().unwrap()).join(".zshrc");
+        let zshrc_path = self.config.home_path.join(".zshrc");
 
         if !bd_script_path.exists() {
 
@@ -479,11 +489,11 @@ impl DotfilesInstaller {
     pub fn setup_helix(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("helix", "hx")?;
 
-        let helix_config_path = (*self.config.dotfiles_path.clone().unwrap()).join(".config/helix");
+        let helix_config_path = self.config.dotfiles_path.join(".config/helix");
 
         ::std::fs::create_dir_all(&helix_config_path)?;
 
-        copy_dir_all(helix_config_path, (*self.config.home_path.clone().unwrap()).join(".config"))?;
+        copy_dir_all(helix_config_path, self.config.home_path.join(".config"))?;
 
         Ok(())
     }
@@ -491,8 +501,8 @@ impl DotfilesInstaller {
     pub fn setup_extra_nvim(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         pmw.check_dependency_result("git", "git")?;
 
-        let extra_nvim_path = (*self.config.home_path
-            .clone().unwrap()).join("extra.nvim");
+        let extra_nvim_path = self.config.home_path
+            .join("extra.nvim");
 
         clone(
             "https://github.com/TwoSpikes/extra.nvim.git",
@@ -526,7 +536,6 @@ impl DotfilesInstaller {
 
     pub fn setup_git(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_termux(&self) -> ::std::io::Result<()> {
@@ -535,72 +544,58 @@ impl DotfilesInstaller {
 
     pub fn setup_tmux(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_nano(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_alacritty(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_ctags(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_nodejs(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_pnpm(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_mc_or_far(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_python(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_pip(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_pipx(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_golang(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_delve(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_java(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 
     pub fn setup_coursier(&self, pmw: &PackageManagerWrapper) -> ::std::io::Result<()> {
         todo!();
-        Ok(())
     }
 }
 

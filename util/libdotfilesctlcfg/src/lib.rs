@@ -2,6 +2,8 @@ use ::std::path::Path;
 use ::std::path::PathBuf;
 use ::std::env::var;
 
+use ::dirs::home_dir;
+
 fn is_space(c: char) -> bool {
     return c == ' ' || c == '\u{00A0}';
 }
@@ -11,17 +13,24 @@ fn is_letter(c: char) -> bool {
 }
 
 pub struct Config {
-    pub home_path: Option<Box<PathBuf>>,
-    pub dotfiles_path: Option<Box<PathBuf>>,
-    pub root_path: Option<Box<PathBuf>>,
+    pub home_path: PathBuf,
+    pub dotfiles_path: PathBuf,
+    pub root_path: PathBuf,
 }
 
 impl Config {
     pub fn new() -> Self {
+        let home_path = home_dir().expect("Cannot get home directory");
+        let dotfiles_path = home_path.join("dotfiles");
+        let root_path = PathBuf::from(match ::std::env::var("PREFIX") {
+            Ok(x) => x,
+            Err(_) => "/".to_string(),
+        });
+
         Self {
-            home_path: None,
-            dotfiles_path: None,
-            root_path: None,
+            home_path,
+            dotfiles_path,
+            root_path,
         }
     }
 }
@@ -256,13 +265,13 @@ fn parse_string_value(config: &mut Config, name: String, value: String) -> Resul
     let value = value.as_str();
     match name.as_str() {
         "home" => {
-            config.home_path = Some(Box::new(Path::new(value).to_owned()));
+            config.home_path = Path::new(value).to_path_buf();
         },
         "dotfiles" => {
-            config.dotfiles_path = Some(Box::new(Path::new(value).to_owned()));
+            config.dotfiles_path = Path::new(value).to_path_buf();
         },
         "root" => {
-            config.root_path = Some(Box::new(Path::new(value).to_owned()));
+            config.root_path = Path::new(value).to_path_buf();
         },
         _ => {
             eprintln!("Unknown name: {}", name);
@@ -285,27 +294,4 @@ fn parse_identifier(_config: &mut Config, name: String, identifier: String) -> R
 }
 
 pub fn handle_config(config: &mut Config) {
-    if config.home_path.is_none() {
-        config.home_path = match ::home::home_dir() {
-            Some(path) => Some(Box::new(path)),
-            None => None,
-        };
-    }
-
-    if config.dotfiles_path.is_none() {
-        let home_path = *(config.home_path.clone().unwrap());
-        let dotfiles_path = home_path.join("dotfiles");
-        config.dotfiles_path = Some(Box::new(dotfiles_path));
-    }
-
-    if config.root_path.is_none() {
-        match var("PREFIX") {
-            Ok(prefix) => {
-                config.root_path = Some(Box::new(Path::new(prefix.as_str()).join("..")));
-            },
-            Err(_e) => {
-                config.root_path = Some(Box::new(Path::new("/").to_path_buf()));
-            },
-        }
-    }
 }
